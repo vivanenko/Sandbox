@@ -31,6 +31,7 @@ public class AppDbContext : DbContext
 public class NotificationSearchResult
 {
     public int NotificationId { get; set; }
+    public int OverallRank { get; set; }
 }
 
 public class User

@@ -57,19 +57,21 @@ public class WeatherForecastController : ControllerBase
     [HttpGet("notifications")]
     public async Task<IActionResult> GetNotifications()
     {
-        var query = ""; // Emily Johnson
+        var query = "approved"; // Emily Johnson
         var offset = 0;
         var limit = 10;
         var showEmails = true;
         var showNotifications = true;
         await using var context = await _dbContextFactory.CreateDbContextAsync();
+        int count;
         IQueryable<Notification> q;
         if (!string.IsNullOrEmpty(query))
         {
-            var notificationsIndex = await context.NotificationSearchResults
+            var notificationsIndexQuery = context.NotificationSearchResults
                 .FromSqlRaw(@"
                     SELECT 
-                        n.Id AS NotificationId
+                        n.Id AS NotificationId,
+                        (ISNULL(rn.RANK, 0) + ISNULL(ru.RANK, 0) + ISNULL(rnm.RANK, 0)) / 3 AS OverallRank
                     FROM 
                         Notifications n
                     LEFT JOIN FREETEXTTABLE(Notifications, (Subject, Content), {0}) rn
@@ -85,10 +87,12 @@ public class WeatherForecastController : ControllerBase
                     WHERE
                         (n.IsEmail = {2} AND n.IsNotification = {3}) 
                         AND (rn.RANK IS NOT NULL OR ru.RANK IS NOT NULL OR rnm.RANK IS NOT NULL)
-                    ORDER BY n.CreatedAt DESC, (ISNULL(rn.RANK, 0) + ISNULL(ru.RANK, 0) + ISNULL(rnm.RANK, 0)) / 3 DESC
-                    OFFSET {4} ROWS
-                    FETCH NEXT {5} ROWS ONLY
-                ", query, NameType.Current, showEmails, showNotifications, offset, limit)
+                ", query, NameType.Current, showEmails, showNotifications);
+            count = await notificationsIndexQuery.CountAsync();
+            var notificationsIndex = await notificationsIndexQuery
+                .OrderByDescending(e => e.OverallRank)
+                .Skip(offset)
+                .Take(limit)
                 .Select(e => e.NotificationId)
                 .ToArrayAsync();
             q = context.Notifications
@@ -97,15 +101,15 @@ public class WeatherForecastController : ControllerBase
         }
         else
         {
-            q = context.Notifications
-                .Where(e => e.IsEmail == showEmails && e.IsNotification == showNotifications)
-                .OrderByDescending(e => e.CreatedAt)
+            q = context.Notifications.Where(e => e.IsEmail == showEmails && e.IsNotification == showNotifications);
+            count = await q.CountAsync();
+            q = q.OrderByDescending(e => e.CreatedAt)
                 .Skip(offset)
                 .Take(limit);
         }
         
         var results = await q.ToArrayAsync();
         
-        return Ok();
+        return Ok(count);
     }
 }
