@@ -1,39 +1,11 @@
 using MassTransit;
+using Web.Common;
+using Web.Services.Inventory;
+using Web.Services.Ordering;
+using Web.Services.Payment;
+using Web.Services.Wallet;
 
-namespace Web.Saga;
-
-public record OrderItemDto(Guid Id, int Quantity);
-
-// Checkout
-public record StartCheckout(Guid OrderId, Guid UserId, decimal Amount, int BonusPoints, List<OrderItemDto> Items);
-public record CheckoutSucceeded(Guid OrderId);
-public record CheckoutFailed(Guid OrderId, string Reason);
-
-// Reservation
-public record ReserveInventory(Guid OrderId, List<OrderItemDto> Items);
-public record InventoryReserved(Guid OrderId);
-public record InventoryReservationFailed(Guid OrderId, string Reason);
-public record CancelReservation(Guid OrderId);
-public record InventoryReservationCancelled(Guid OrderId);
-
-// Wallet
-public record DeductCoins(Guid OrderId, Guid UserId, int Points);
-public record CoinsDeducted(Guid OrderId);
-public record CoinsDeductionFailed(Guid OrderId, string Reason);
-public record RefundCoins(Guid OrderId, Guid UserId, int Points);
-public record CoinsRefunded(Guid OrderId);
-
-// Payment
-public record ChargeUser(Guid OrderId, Guid UserId, decimal Amount);
-public record PaymentCharged(Guid OrderId);
-public record PaymentFailed(Guid OrderId, string Reason);
-public record CancelPayment(Guid OrderId);
-public record PaymentCancelled(Guid OrderId);
-
-// Ordering
-public record PlaceOrder(Guid OrderId);
-public record OrderPlaced(Guid OrderId);
-public record OrderPlacementFailed(Guid OrderId, string Reason);
+namespace Web.Checkout;
 
 public class CheckoutState : SagaStateMachineInstance
 {
@@ -132,7 +104,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
                     context.Saga.OrderId = context.Message.OrderId;
                     context.Saga.UserId = context.Message.UserId;
                     context.Saga.Amount = context.Message.Amount;
-                    context.Saga.BonusPoints = context.Message.BonusPoints;
+                    context.Saga.BonusPoints = context.Message.CoinsAmount;
                     context.Saga.Items = context.Message.Items;
 
                     if (!context.RequestId.HasValue || context.ResponseAddress is null)

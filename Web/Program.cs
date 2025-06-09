@@ -1,5 +1,5 @@
 using MassTransit;
-using Web.Saga;
+using Web.Checkout;
 using Web.Services.Inventory;
 using Web.Services.Ordering;
 using Web.Services.Payment;
@@ -7,11 +7,9 @@ using Web.Services.Wallet;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.AddTransient<OrderingRoutingSlip>();
+// builder.Services.AddTransient<OrderingRoutingSlip>();
 
 builder.Services.AddMassTransit(cfg =>
 {
@@ -36,7 +34,6 @@ builder.Services.AddMassTransit(cfg =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
