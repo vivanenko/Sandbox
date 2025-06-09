@@ -1,8 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.Console", "Sandbox.Console\Sandbox.Console.csproj", "{FB1F44DC-300F-4D00-B901-4B442BE5F889}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CjSdk", "CjSdk\CjSdk.csproj", "{AC7A1C88-BD66-4112-ADCF-946B13749DC8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.FullTextSearch", "Sandbox.FullTextSearch\Sandbox.FullTextSearch.csproj", "{06644DF5-9986-4A37-B029-0EB1D1CE5026}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DropShippingService.Core", "DropShippingService.Core\DropShippingService.Core.csproj", "{943F78CD-0C4C-45E6-8F03-4230A0EBD175}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DropShippingService.Web", "DropShippingService.Web\DropShippingService.Web.csproj", "{193BA663-6733-4789-9BE8-C03463E200EC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web", "Web\Web.csproj", "{BD75050D-43EC-4184-A7EE-87D21FC8F8EC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ordering", "Ordering\Ordering.csproj", "{DA4CF638-70A8-4EDF-9432-F3409C3D958F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -10,13 +16,25 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{FB1F44DC-300F-4D00-B901-4B442BE5F889}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FB1F44DC-300F-4D00-B901-4B442BE5F889}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FB1F44DC-300F-4D00-B901-4B442BE5F889}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FB1F44DC-300F-4D00-B901-4B442BE5F889}.Release|Any CPU.Build.0 = Release|Any CPU
-		{06644DF5-9986-4A37-B029-0EB1D1CE5026}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{06644DF5-9986-4A37-B029-0EB1D1CE5026}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{06644DF5-9986-4A37-B029-0EB1D1CE5026}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{06644DF5-9986-4A37-B029-0EB1D1CE5026}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC7A1C88-BD66-4112-ADCF-946B13749DC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC7A1C88-BD66-4112-ADCF-946B13749DC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC7A1C88-BD66-4112-ADCF-946B13749DC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC7A1C88-BD66-4112-ADCF-946B13749DC8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{943F78CD-0C4C-45E6-8F03-4230A0EBD175}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{943F78CD-0C4C-45E6-8F03-4230A0EBD175}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{943F78CD-0C4C-45E6-8F03-4230A0EBD175}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{943F78CD-0C4C-45E6-8F03-4230A0EBD175}.Release|Any CPU.Build.0 = Release|Any CPU
+		{193BA663-6733-4789-9BE8-C03463E200EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{193BA663-6733-4789-9BE8-C03463E200EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{193BA663-6733-4789-9BE8-C03463E200EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{193BA663-6733-4789-9BE8-C03463E200EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BD75050D-43EC-4184-A7EE-87D21FC8F8EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD75050D-43EC-4184-A7EE-87D21FC8F8EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD75050D-43EC-4184-A7EE-87D21FC8F8EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD75050D-43EC-4184-A7EE-87D21FC8F8EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DA4CF638-70A8-4EDF-9432-F3409C3D958F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA4CF638-70A8-4EDF-9432-F3409C3D958F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA4CF638-70A8-4EDF-9432-F3409C3D958F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA4CF638-70A8-4EDF-9432-F3409C3D958F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

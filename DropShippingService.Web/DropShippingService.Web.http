@@ -1,0 +1,6 @@
+@DropShippingService.Web_HostAddress = http://localhost:5254
+
+GET {{DropShippingService.Web_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
