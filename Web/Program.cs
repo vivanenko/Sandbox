@@ -22,9 +22,11 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddConsumer<CancelReservationConsumer>().Endpoint(c => c.Name = "cancel-reservation");
     cfg.AddConsumer<DeductCoinsConsumer>().Endpoint(c => c.Name = "deduct-coins");
     cfg.AddConsumer<RefundCoinsConsumer>().Endpoint(c => c.Name = "refund-coins");
-    cfg.AddConsumer<CreatePaymentIntentConsumer>().Endpoint(c => c.Name = "charge-user");
-    cfg.AddConsumer<CancelPaymentIntentConsumer>().Endpoint(c => c.Name = "cancel-payment");
+    cfg.AddConsumer<CreatePaymentIntentConsumer>().Endpoint(c => c.Name = "create-payment-intent");
+    cfg.AddConsumer<CancelPaymentIntentConsumer>().Endpoint(c => c.Name = "cancel-payment-intent");
     cfg.AddConsumer<PlaceOrderConsumer>().Endpoint(c => c.Name = "place-order");
+    cfg.AddConsumer<ConfirmPaymentConsumer>().Endpoint(c => c.Name = "confirm-payment");
+    cfg.AddConsumer<RefundPaymentConsumer>().Endpoint(c => c.Name = "refund-payment");
     
     cfg.UsingInMemory((context, config) =>
     {

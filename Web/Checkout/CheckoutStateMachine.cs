@@ -73,6 +73,10 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
     public Event<OrderPlaced> OrderPlaced { get; private set; }
     public Event<OrderPlacementFailed> OrderPlacementFailed { get; private set; }
     
+    public Event<PaymentConfirmed> PaymentConfirmed { get; private set; }
+    public Event<PaymentFailed> PaymentFailed { get; private set; }
+    public Event<PaymentRefunded> PaymentRefunded { get; private set; }
+    
     public CheckoutStateMachine()
     {
         InstanceState(x => x.CurrentState);
@@ -95,6 +99,10 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
         
         Event(() => OrderPlaced, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => OrderPlacementFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        
+        Event(() => PaymentConfirmed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => PaymentFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => PaymentRefunded, x => x.CorrelateById(context => context.Message.OrderId));
 
         Initially(
             When(CheckoutStarted)
@@ -131,7 +139,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
 
         During(WaitingForCoinsDeduction,
             When(CoinsDeducted)
-                .Send(new Uri("queue:charge-user"), 
+                .Send(new Uri("queue:create-payment-intent"), 
                     context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount))
                 .TransitionTo(WaitingForPaymentIntent),
 
@@ -172,7 +180,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
                 .Send(new Uri("queue:refund-coins"), 
                     context => new RefundCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                 .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
-                .Send(new Uri("queue:cancel-payment"), context => new CancelPaymentIntent(context.Saga.OrderId))
+                .Send(new Uri("queue:cancel-payment-intent"), context => new CancelPaymentIntent(context.Saga.OrderId))
                 .TransitionTo(Failed)
         );
         
