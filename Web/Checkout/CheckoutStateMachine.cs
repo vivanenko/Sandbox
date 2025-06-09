@@ -55,7 +55,8 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
     public State Failed { get; private set; }
 
     public Event<StartCheckout> CheckoutStarted { get; private set; }
-    public Event<CheckoutSucceeded> CheckoutSucceeded { get; private set; }
+    public Event<CheckoutOrderPlaced> CheckoutOrderPlaced { get; private set; }
+    public Event<CheckoutCompleted> CheckoutCompleted { get; private set; }
     public Event<CheckoutFailed> CheckoutFailed { get; private set; }
     
     public Event<InventoryReserved> InventoryReserved { get; private set; }
@@ -82,8 +83,9 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
         InstanceState(x => x.CurrentState);
 
         Event(() => CheckoutStarted, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => CheckoutSucceeded, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => CheckoutFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => CheckoutOrderPlaced, x => x.CorrelateById(context => context.Message.OrderId)); // ?
+        Event(() => CheckoutCompleted, x => x.CorrelateById(context => context.Message.OrderId)); // ?
+        Event(() => CheckoutFailed, x => x.CorrelateById(context => context.Message.OrderId)); // ?
         
         Event(() => InventoryReserved, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => InventoryReservationFailed, x => x.CorrelateById(context => context.Message.OrderId));
@@ -166,7 +168,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
             When(OrderPlaced)
                 .ThenAsync(async context =>
                 {
-                    var message = new CheckoutSucceeded(context.Saga.OrderId);
+                    var message = new CheckoutOrderPlaced(context.Saga.OrderId);
                     await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                     {
                         sendContext.RequestId = context.Saga.RequestId;
