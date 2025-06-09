@@ -17,7 +17,7 @@ builder.Services.AddMassTransit(cfg =>
         .InMemoryRepository();
     
     cfg.AddRequestClient<StartCheckout>();
-    cfg.AddRequestClient<ConfirmPayment>();
+    cfg.AddRequestClient<ConfirmCheckout>();
     
     cfg.AddConsumer<ReserveInventoryConsumer>().Endpoint(c => c.Name = "reserve-inventory");
     cfg.AddConsumer<CancelReservationConsumer>().Endpoint(c => c.Name = "cancel-reservation");
@@ -28,6 +28,7 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddConsumer<PlaceOrderConsumer>().Endpoint(c => c.Name = "place-order");
     cfg.AddConsumer<ConfirmPaymentConsumer>().Endpoint(c => c.Name = "confirm-payment");
     cfg.AddConsumer<RefundPaymentConsumer>().Endpoint(c => c.Name = "refund-payment");
+    cfg.AddConsumer<PayOrderConsumer>().Endpoint(c => c.Name = "pay-order");
     
     cfg.UsingInMemory((context, config) =>
     {
@@ -58,10 +59,10 @@ app.MapGet("checkout/run", async (IRequestClient<StartCheckout> requestClient, C
     throw new Exception("Unknown response");
 });
 
-app.MapGet("checkout/{orderId}/confirm", async (Guid orderId, IRequestClient<ConfirmPayment> requestClient, 
+app.MapGet("checkout/{orderId}/confirm", async (Guid orderId, IRequestClient<ConfirmCheckout> requestClient, 
     CancellationToken cancellationToken) =>
 {
-    var command = new ConfirmPayment(orderId);
+    var command = new ConfirmCheckout(orderId);
     var response = await requestClient.GetResponse<CheckoutCompleted, CheckoutFailed>(command, cancellationToken);
     Console.WriteLine("Checkout completed");
     
