@@ -7,7 +7,7 @@ public class PlaceOrderConsumer : IConsumer<PlaceOrder>
     public async Task Consume(ConsumeContext<PlaceOrder> context)
     {
         Console.WriteLine("Placing an order");
-        // await context.Publish(new OrderPlaced(context.Message.OrderId));
-        await context.Publish(new OrderPlacementFailed(context.Message.OrderId, ""));
+        await context.Publish(new OrderPlaced(context.Message.OrderId));
+        // await context.Publish(new OrderPlacementFailed(context.Message.OrderId, ""));
     }
 }

@@ -47,7 +47,7 @@ app.UseHttpsRedirection();
 
 app.MapGet("checkout/run", async (IRequestClient<StartCheckout> requestClient, CancellationToken cancellationToken) =>
 {
-    var command = new StartCheckout(Guid.CreateVersion7(), Guid.CreateVersion7(), 0, 5, []);
+    var command = new StartCheckout(Guid.CreateVersion7(), Guid.CreateVersion7(), 10, 5, []);
     var response = await requestClient
         .GetResponse<CheckoutOrderPlaced, CheckoutCompleted, CheckoutFailed>(command, cancellationToken);
 

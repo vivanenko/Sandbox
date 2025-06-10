@@ -20,8 +20,7 @@ public class CheckoutState : SagaStateMachineInstance
     public List<OrderItemDto> Items { get; set; } = [];
 
     public DateTime CreatedAt { get; set; }
-
-    public bool IsInventoryReservationFailed { get; set; }
+    
     public bool IsInventoryReservationCancelled { get; set; }
 
     public bool IsCoinsDeducted { get; set; }
@@ -34,10 +33,7 @@ public class CheckoutState : SagaStateMachineInstance
     
     public bool IsOrderPlacementFailed { get; set; }
 
-    private bool IsAnyTransactionFailed => IsInventoryReservationFailed ||
-                                           IsCoinsDeductionFailed ||
-                                           IsPaymentIntentFailed ||
-                                           IsOrderPlacementFailed;
+    private bool IsAnyTransactionFailed => IsCoinsDeductionFailed || IsPaymentIntentFailed || IsOrderPlacementFailed;
     private bool IsAllTransactionsCompensated => IsInventoryReservationCancelled &&
                                                  (!IsCoinsDeducted || IsCoinsRefunded) &&
                                                  (!IsPaymentIntentCreated || IsPaymentIntentCancelled);
@@ -96,10 +92,10 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
         InstanceState(x => x.CurrentState);
 
         Event(() => StartCheckout, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => CheckoutOrderPlaced, x => x.CorrelateById(context => context.Message.OrderId)); // ?
-        Event(() => ConfirmCheckout, x => x.CorrelateById(context => context.Message.OrderId)); // ?
-        Event(() => CheckoutCompleted, x => x.CorrelateById(context => context.Message.OrderId)); // ?
-        Event(() => CheckoutFailed, x => x.CorrelateById(context => context.Message.OrderId)); // ?
+        Event(() => CheckoutOrderPlaced, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => ConfirmCheckout, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => CheckoutCompleted, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => CheckoutFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Event(() => InventoryReserved, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => InventoryReservationFailed, x => x.CorrelateById(context => context.Message.OrderId));
@@ -156,8 +152,15 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
                 ),
 
             When(InventoryReservationFailed)
-                .Then(context => context.Saga.IsInventoryReservationFailed = true)
-                .TransitionTo(Failed)
+                .ThenAsync(async context =>
+                {
+                    var message = new CheckoutFailed(context.Saga.OrderId, "");
+                    await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
+                    {
+                        sendContext.RequestId = context.Saga.StartCheckoutRequestId;
+                    });
+                })
+                .Finalize()
         );
 
         During(WaitingForCoinsDeduction,
@@ -236,7 +239,18 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
         During(WaitingForPaymentConfirmation,
             When(PaymentConfirmed)
                 .Send(new Uri("queue:pay-order"), context => new PayOrder(context.Saga.OrderId))
-                .TransitionTo(WaitingForOrderPayment)
+                .TransitionTo(WaitingForOrderPayment),
+            
+            When(PaymentFailed)
+                .ThenAsync(async context =>
+                {
+                    var message = new CheckoutFailed(context.Saga.OrderId, "");
+                    await context.Send(context.Saga.ConfirmCheckoutResponseAddress, message, sendContext =>
+                    {
+                        sendContext.RequestId = context.Saga.ConfirmCheckoutRequestId;
+                    });
+                })
+                .Finalize()
         );
         
         During(WaitingForOrderPayment,
@@ -264,7 +278,8 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
                 .Finalize(),
             
             When(OrderPaymentFailed)
-                // todo: Refund
+                .Send(new Uri("queue:refund-payment"), context => new RefundPayment(context.Saga.OrderId))
+                .TransitionTo(Failed)
         );
         
         During(Failed,
@@ -308,7 +323,18 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
                                 sendContext.RequestId = context.Saga.StartCheckoutRequestId;
                             });
                         })
-                        .Finalize())
+                        .Finalize()),
+            
+            When(PaymentRefunded)
+                .ThenAsync(async context =>
+                {
+                    var message = new CheckoutFailed(context.Saga.OrderId, "");
+                    await context.Send(context.Saga.ConfirmCheckoutResponseAddress, message, sendContext =>
+                    {
+                        sendContext.RequestId = context.Saga.ConfirmCheckoutRequestId;
+                    });
+                })
+                .Finalize()
         );
         
         SetCompletedWhenFinalized();

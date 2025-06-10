@@ -6,7 +6,7 @@ public class ReserveInventoryConsumer : IConsumer<ReserveInventory>
 {
     public async Task Consume(ConsumeContext<ReserveInventory> context)
     {
-        Console.WriteLine("Inventory has been reserved");
+        Console.WriteLine("Inventory reservation");
         await context.Publish(new InventoryReserved(context.Message.OrderId));
         // await context.Publish(new InventoryReservationFailed(context.Message.OrderId, ""));
     }
