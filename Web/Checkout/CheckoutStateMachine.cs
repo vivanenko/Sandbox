@@ -38,9 +38,9 @@ public class CheckoutState : SagaStateMachineInstance
                                            IsCoinsDeductionFailed ||
                                            IsPaymentIntentFailed ||
                                            IsOrderPlacementFailed;
-    private bool IsAllTransactionsCompensated => IsInventoryReservationCancelled && 
-                                                 IsCoinsRefunded &&
-                                                 IsPaymentIntentCancelled;
+    private bool IsAllTransactionsCompensated => IsInventoryReservationCancelled &&
+                                                 (!IsCoinsDeducted || IsCoinsRefunded) &&
+                                                 (!IsPaymentIntentCreated || IsPaymentIntentCancelled);
     public bool IsCompensated => IsAnyTransactionFailed && IsAllTransactionsCompensated;
 
     public Guid StartCheckoutRequestId { get; set; }
@@ -241,27 +241,30 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
         
         During(WaitingForOrderPayment,
             When(OrderPaid)
-            .ThenAsync(async context =>
-            {
-                Uri responseAddress;
-                Guid requestId;
-                if (context.Saga.IsPaymentConfirmationRequired)
+                .ThenAsync(async context =>
                 {
-                    responseAddress = context.Saga.ConfirmCheckoutResponseAddress;
-                    requestId = context.Saga.ConfirmCheckoutRequestId;
-                }
-                else
-                {
-                    responseAddress = context.Saga.StartCheckoutResponseAddress;
-                    requestId = context.Saga.StartCheckoutRequestId;
-                }
-                var message = new CheckoutCompleted(context.Saga.OrderId);
-                await context.Send(responseAddress, message, sendContext =>
-                {
-                    sendContext.RequestId = requestId;
-                });
-            })
-            .Finalize()
+                    Uri responseAddress;
+                    Guid requestId;
+                    if (context.Saga.IsPaymentConfirmationRequired)
+                    {
+                        responseAddress = context.Saga.ConfirmCheckoutResponseAddress;
+                        requestId = context.Saga.ConfirmCheckoutRequestId;
+                    }
+                    else
+                    {
+                        responseAddress = context.Saga.StartCheckoutResponseAddress;
+                        requestId = context.Saga.StartCheckoutRequestId;
+                    }
+                    var message = new CheckoutCompleted(context.Saga.OrderId);
+                    await context.Send(responseAddress, message, sendContext =>
+                    {
+                        sendContext.RequestId = requestId;
+                    });
+                })
+                .Finalize(),
+            
+            When(OrderPaymentFailed)
+                // todo: Refund
         );
         
         During(Failed,
