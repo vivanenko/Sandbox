@@ -23,10 +23,12 @@ public class CheckoutState : SagaStateMachineInstance
 
     public bool IsInventoryReservationFailed { get; set; }
     public bool IsInventoryReservationCancelled { get; set; }
-    
+
+    public bool IsCoinsDeducted { get; set; }
     public bool IsCoinsDeductionFailed { get; set; }
     public bool IsCoinsRefunded { get; set; }
-    
+
+    public bool IsPaymentIntentCreated { get; set; }
     public bool IsPaymentIntentFailed { get; set; }
     public bool IsPaymentIntentCancelled { get; set; }
     
@@ -160,6 +162,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
 
         During(WaitingForCoinsDeduction,
             When(CoinsDeducted)
+                .Then(context => context.Saga.IsCoinsDeducted = true)
                 .IfElse(context => context.Saga.Amount > 0,
                     binder => binder.Send(new Uri("queue:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount))
                                     .TransitionTo(WaitingForPaymentIntent),
@@ -175,12 +178,15 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
 
         During(WaitingForPaymentIntent,
             When(PaymentIntentCreated)
+                .Then(context => context.Saga.IsPaymentIntentCreated = true)
                 .Send(new Uri("queue:place-order"), context => new PlaceOrder(context.Saga.OrderId))
                 .TransitionTo(WaitingForOrderPlacement),
 
             When(PaymentIntentFailed)
                 .Then(context => context.Saga.IsPaymentIntentFailed = true)
-                .Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                .If(context => context.Saga.IsCoinsDeducted,
+                    binder => binder.Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                )
                 .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
                 .TransitionTo(Failed)
         );
@@ -203,10 +209,13 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
             
             When(OrderPlacementFailed)
                 .Then(context => context.Saga.IsOrderPlacementFailed = true)
-                .Send(new Uri("queue:refund-coins"), 
-                    context => new RefundCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                 .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
-                .Send(new Uri("queue:cancel-payment-intent"), context => new CancelPaymentIntent(context.Saga.OrderId))
+                .If(context => context.Saga.IsCoinsDeducted,
+                    binder => binder.Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                )
+                .If(context => context.Saga.IsPaymentIntentCreated,
+                    binder => binder.Send(new Uri("queue:cancel-payment-intent"), context => new CancelPaymentIntent(context.Saga.OrderId))
+                )
                 .TransitionTo(Failed)
         );
 
