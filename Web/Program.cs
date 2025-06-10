@@ -47,15 +47,28 @@ app.UseHttpsRedirection();
 
 app.MapGet("checkout/run", async (IRequestClient<StartCheckout> requestClient, CancellationToken cancellationToken) =>
 {
-    var command = new StartCheckout(Guid.CreateVersion7(), Guid.CreateVersion7(), 10, 5, []);
-    var response = await requestClient.GetResponse<CheckoutOrderPlaced, CheckoutFailed>(command, cancellationToken);
-    
-    Console.WriteLine("Checkout: order placed");
-    
+    var command = new StartCheckout(Guid.CreateVersion7(), Guid.CreateVersion7(), 10, 0, []);
+    var response = await requestClient
+        .GetResponse<CheckoutOrderPlaced, CheckoutCompleted, CheckoutFailed>(command, cancellationToken);
+
     if (response.Is(out Response<CheckoutOrderPlaced>? succeeded))
+    {
+        Console.WriteLine("Checkout: Confirmation required");
         return Results.Ok(succeeded.Message.OrderId);
+    }
+
+    if (response.Is(out Response<CheckoutCompleted>? completed))
+    {
+        Console.WriteLine("Checkout completed");
+        return Results.Ok("Checkout completed");
+    }
+
     if (response.Is(out Response<CheckoutFailed>? failed))
+    {
+        Console.WriteLine("Checkout failed");
         return Results.BadRequest(failed.Message.Reason);
+    }
+    
     throw new Exception("Unknown response");
 });
 
@@ -64,12 +77,19 @@ app.MapGet("checkout/{orderId}/confirm", async (Guid orderId, IRequestClient<Con
 {
     var command = new ConfirmCheckout(orderId);
     var response = await requestClient.GetResponse<CheckoutCompleted, CheckoutFailed>(command, cancellationToken);
-    Console.WriteLine("Checkout completed");
-    
+
     if (response.Is(out Response<CheckoutCompleted>? succeeded))
-        return Results.Ok(succeeded.Message.OrderId);
+    {
+        Console.WriteLine("Checkout completed");
+        return Results.Ok("Checkout completed");
+    }
+
     if (response.Is(out Response<CheckoutFailed>? failed))
+    {
+        Console.WriteLine("Checkout failed");
         return Results.BadRequest(failed.Message.Reason);
+    }
+    
     throw new Exception("Unknown response");
 });
 
