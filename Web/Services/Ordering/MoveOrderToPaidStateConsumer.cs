@@ -2,9 +2,9 @@ using MassTransit;
 
 namespace Web.Services.Ordering;
 
-public class PayOrderConsumer : IConsumer<PayOrder>
+public class MoveOrderToPaidStateConsumer : IConsumer<MoveOrderToPaidState>
 {
-    public async Task Consume(ConsumeContext<PayOrder> context)
+    public async Task Consume(ConsumeContext<MoveOrderToPaidState> context)
     {
         Console.WriteLine("Order is moving to Paid state");
         await context.Publish(new OrderPaid(context.Message.OrderId));

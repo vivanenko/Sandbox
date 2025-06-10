@@ -207,7 +207,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
                 .TransitionTo(WaitingForCheckoutConfirmation),
             
             When(OrderPlaced, context => !context.Saga.IsPaymentConfirmationRequired)
-                .Send(new Uri("queue:pay-order"), context => new PayOrder(context.Saga.OrderId))
+                .Send(new Uri("queue:move-order-to-paid-state"), context => new MoveOrderToPaidState(context.Saga.OrderId))
                 .TransitionTo(WaitingForOrderPayment),
             
             When(OrderPlacementFailed)
@@ -238,7 +238,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
         
         During(WaitingForPaymentConfirmation,
             When(PaymentConfirmed)
-                .Send(new Uri("queue:pay-order"), context => new PayOrder(context.Saga.OrderId))
+                .Send(new Uri("queue:move-order-to-paid-state"), context => new MoveOrderToPaidState(context.Saga.OrderId))
                 .TransitionTo(WaitingForOrderPayment),
             
             When(PaymentFailed)
