@@ -143,9 +143,13 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
 
         During(WaitingForInventory,
             When(InventoryReserved)
-                .Send(new Uri("queue:deduct-coins"), 
-                    context => new DeductCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
-                .TransitionTo(WaitingForCoinsDeduction),
+                .IfElse(context => context.Saga.CoinsAmount > 0,
+                    binder => binder.Send(new Uri("queue:deduct-coins"), context => new DeductCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount)).TransitionTo(WaitingForCoinsDeduction),
+                    binder => binder.IfElse(context => context.Saga.Amount > 0,
+                        innerBinder => innerBinder.Send(new Uri("queue:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount)).TransitionTo(WaitingForPaymentIntent),
+                        innerBinder => innerBinder.Send(new Uri("queue:place-order"), context => new PlaceOrder(context.Saga.OrderId)).TransitionTo(WaitingForOrderPlacement)
+                    )
+                ),
 
             When(InventoryReservationFailed)
                 .Then(context => context.Saga.IsInventoryReservationFailed = true)
@@ -154,9 +158,10 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
 
         During(WaitingForCoinsDeduction,
             When(CoinsDeducted)
-                .Send(new Uri("queue:create-payment-intent"), 
-                    context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount))
-                .TransitionTo(WaitingForPaymentIntent),
+                .IfElse(context => context.Saga.Amount > 0,
+                    binder => binder.Send(new Uri("queue:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount)).TransitionTo(WaitingForPaymentIntent),
+                    binder => binder.Send(new Uri("queue:place-order"), context => new PlaceOrder(context.Saga.OrderId)).TransitionTo(WaitingForOrderPlacement)
+                ),
 
             When(CoinsDeductionFailed)
                 .Then(context => context.Saga.IsCoinsDeductionFailed = true)
