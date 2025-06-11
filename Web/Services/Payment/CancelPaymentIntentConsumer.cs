@@ -6,8 +6,20 @@ public class CancelPaymentIntentConsumer : IConsumer<CancelPaymentIntent>
 {
     public async Task Consume(ConsumeContext<CancelPaymentIntent> context)
     {
-        Console.WriteLine("Cancelling payment intent");
-        await context.Publish(new PaymentIntentCancelled(context.Message.OrderId));
-        // await context.Publish(new PaymentIntentCancellationFailed(context.Message.OrderId, ""));
+        var success = true;
+        if (success)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Payment intent has been cancelled");
+            Console.ResetColor();
+            await context.Publish(new PaymentIntentCancelled(context.Message.OrderId));
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Payment intent cancellation failed");
+            Console.ResetColor();
+            await context.Publish(new PaymentIntentCancellationFailed(context.Message.OrderId, ""));
+        }
     }
 }

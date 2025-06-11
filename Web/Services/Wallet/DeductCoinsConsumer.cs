@@ -6,8 +6,20 @@ public class DeductCoinsConsumer : IConsumer<DeductCoins>
 {
     public async Task Consume(ConsumeContext<DeductCoins> context)
     {
-        Console.WriteLine("Coins have been deducted");
-        await context.Publish(new CoinsDeducted(context.Message.OrderId));
-        // await context.Publish(new CoinsDeductionFailed(context.Message.OrderId, ""));
+        var success = true;
+        if (success)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Coins have been deducted");
+            Console.ResetColor();
+            await context.Publish(new CoinsDeducted(context.Message.OrderId));
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Coins deduction failed");
+            Console.ResetColor();
+            await context.Publish(new CoinsDeductionFailed(context.Message.OrderId, ""));   
+        }
     }
 }

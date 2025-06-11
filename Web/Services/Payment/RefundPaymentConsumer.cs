@@ -6,7 +6,20 @@ public class RefundPaymentConsumer : IConsumer<RefundPayment>
 {
     public async Task Consume(ConsumeContext<RefundPayment> context)
     {
-        Console.WriteLine("Payment has been refunded");
-        await context.Publish(new PaymentRefunded(context.Message.OrderId));
+        var success = true;
+        if (success)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Payment has been refunded");
+            Console.ResetColor();
+            await context.Publish(new PaymentRefunded(context.Message.OrderId));
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Payment refund failed");
+            Console.ResetColor();
+            await context.Publish(new PaymentRefundFailed(context.Message.OrderId, ""));
+        }
     }
 }
