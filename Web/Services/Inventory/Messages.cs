@@ -7,3 +7,4 @@ public record InventoryReserved(Guid OrderId);
 public record InventoryReservationFailed(Guid OrderId, string Reason);
 public record CancelReservation(Guid OrderId);
 public record InventoryReservationCancelled(Guid OrderId);
+public record InventoryReleaseFailed(Guid OrderId, string Reason);

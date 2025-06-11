@@ -6,7 +6,8 @@ public class CancelPaymentIntentConsumer : IConsumer<CancelPaymentIntent>
 {
     public async Task Consume(ConsumeContext<CancelPaymentIntent> context)
     {
-        Console.WriteLine("Payment has been cancelled");
+        Console.WriteLine("Cancelling payment intent");
         await context.Publish(new PaymentIntentCancelled(context.Message.OrderId));
+        // await context.Publish(new PaymentIntentCancellationFailed(context.Message.OrderId, ""));
     }
 }
