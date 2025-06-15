@@ -61,8 +61,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
     public State Compensating { get; private set; }
 
     public Event<StartOrderPlacementSaga> StartOrderPlacement { get; private set; }
-    public Event<OrderPlacementSagaCompleted> CheckoutCompleted { get; private set; }
-    public Event<OrderPlacementSagaFailed> CheckoutFailed { get; private set; }
+    public Event<OrderPlacementSagaCompleted> OrderPlacementSagaCompleted { get; private set; }
+    public Event<OrderPlacementSagaFailed> OrderPlacementSagaFailed { get; private set; }
     
     public Event<InventoryReserved> InventoryReserved { get; private set; }
     public Event<InventoryReservationFailed> InventoryReservationFailed { get; private set; }
@@ -90,8 +90,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
         InstanceState(x => x.CurrentState);
 
         Event(() => StartOrderPlacement, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => CheckoutCompleted, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => CheckoutFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => OrderPlacementSagaCompleted, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => OrderPlacementSagaFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Event(() => InventoryReserved, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => InventoryReservationFailed, x => x.CorrelateById(context => context.Message.OrderId));
