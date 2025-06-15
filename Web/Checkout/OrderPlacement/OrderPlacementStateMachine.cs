@@ -45,8 +45,8 @@ public class OrderPlacementState : SagaStateMachineInstance
                                            (IsCoinsRefunded || IsCoinsRefundFailed) &&
                                            (IsPaymentIntentCancelled || IsPaymentIntentCancellationFailed);
     
-    public Guid StartCheckoutRequestId { get; set; }
-    public Uri StartCheckoutResponseAddress { get; set; }
+    public Guid RequestId { get; set; }
+    public Uri ResponseAddress { get; set; }
     
     public bool IsPaymentConfirmationRequired => Amount > 0;
 }
@@ -128,8 +128,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     if (!context.RequestId.HasValue || context.ResponseAddress is null)
                         throw new Exception("RequestId and ResponseAddress are required");
                     
-                    context.Saga.StartCheckoutRequestId = context.RequestId.Value;
-                    context.Saga.StartCheckoutResponseAddress = context.ResponseAddress;
+                    context.Saga.RequestId = context.RequestId.Value;
+                    context.Saga.ResponseAddress = context.ResponseAddress;
                 })
                 .Send(new Uri("queue:reserve-inventory"), context => new ReserveInventory(context.Saga.OrderId, context.Saga.Items))
                 .TransitionTo(WaitingForInventory)
@@ -150,9 +150,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                    await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
+                    await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                     {
-                        sendContext.RequestId = context.Saga.StartCheckoutRequestId;
+                        sendContext.RequestId = context.Saga.RequestId;
                     });
                 })
                 .Finalize()
@@ -194,9 +194,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, true);
-                    await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
+                    await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                     {
-                        sendContext.RequestId = context.Saga.StartCheckoutRequestId;
+                        sendContext.RequestId = context.Saga.RequestId;
                     });
                 })
                 .Finalize(),
@@ -222,9 +222,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .ThenAsync(context =>
                 {
                     var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, false);
-                    return context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
+                    return context.Send(context.Saga.ResponseAddress, message, sendContext =>
                     {
-                        sendContext.RequestId = context.Saga.StartCheckoutRequestId;
+                        sendContext.RequestId = context.Saga.RequestId;
                     });
                 })
                 .Finalize()
@@ -237,9 +237,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     binder.ThenAsync(async context =>
                     {
                         var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
+                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                         {
-                            sendContext.RequestId = context.Saga.StartCheckoutRequestId;
+                            sendContext.RequestId = context.Saga.RequestId;
                         });
                     })
                     .Finalize()),
@@ -250,9 +250,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     binder.ThenAsync(async context =>
                     {
                         var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
+                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                         {
-                            sendContext.RequestId = context.Saga.StartCheckoutRequestId;
+                            sendContext.RequestId = context.Saga.RequestId;
                         });
                     })
                     .Finalize()),
@@ -263,9 +263,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     binder.ThenAsync(async context =>
                     {
                         var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
+                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                         {
-                            sendContext.RequestId = context.Saga.StartCheckoutRequestId;
+                            sendContext.RequestId = context.Saga.RequestId;
                         });
                     })
                     .Finalize()),
@@ -276,9 +276,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     binder.ThenAsync(async context =>
                     {
                         var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
+                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                         {
-                            sendContext.RequestId = context.Saga.StartCheckoutRequestId;
+                            sendContext.RequestId = context.Saga.RequestId;
                         });
                     })
                     .Finalize()),
@@ -289,9 +289,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     binder.ThenAsync(async context =>
                     {
                         var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
+                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                         {
-                            sendContext.RequestId = context.Saga.StartCheckoutRequestId;
+                            sendContext.RequestId = context.Saga.RequestId;
                         });
                     })
                     .Finalize()),
@@ -302,9 +302,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     binder.ThenAsync(async context =>
                     {
                         var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
+                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                         {
-                            sendContext.RequestId = context.Saga.StartCheckoutRequestId;
+                            sendContext.RequestId = context.Saga.RequestId;
                         });
                     })
                     .Finalize())
