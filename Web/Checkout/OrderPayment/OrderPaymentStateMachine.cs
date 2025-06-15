@@ -22,7 +22,7 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
     public State WaitingForOrderPayment { get; private set; }
     public State Compensating { get; private set; }
     
-    public Event<ConfirmOrderPayment> ConfirmOrderPayment { get; private set; }
+    public Event<StartOrderPaymentSaga> StartOrderPaymentSaga { get; private set; }
     public Event<OrderPaymentSagaFailed> OrderPaymentSagaFailed { get; private set; }
     public Event<OrderPaymentSagaCompleted> OrderPaymentSagaCompleted { get; private set; }
     
@@ -38,7 +38,7 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
     {
         InstanceState(x => x.CurrentState);
         
-        Event(() => ConfirmOrderPayment, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => StartOrderPaymentSaga, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => OrderPaymentSagaFailed, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => OrderPaymentSagaCompleted, x => x.CorrelateById(context => context.Message.OrderId));
         
@@ -51,7 +51,7 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
         Event(() => OrderPaymentFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Initially(
-            When(ConfirmOrderPayment)
+            When(StartOrderPaymentSaga)
                 .Then(context =>
                 {
                     context.Saga.OrderId = context.Message.OrderId;

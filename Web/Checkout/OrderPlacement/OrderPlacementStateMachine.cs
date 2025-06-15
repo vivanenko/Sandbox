@@ -60,9 +60,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
     public State WaitingForOrderPayment { get; private set; }
     public State Compensating { get; private set; }
 
-    public Event<StartOrderPlacement> StartOrderPlacement { get; private set; }
-    public Event<OrderPlacementCompleted> CheckoutCompleted { get; private set; }
-    public Event<OrderPlacementFailed> CheckoutFailed { get; private set; }
+    public Event<StartOrderPlacementSaga> StartOrderPlacement { get; private set; }
+    public Event<OrderPlacementSagaCompleted> CheckoutCompleted { get; private set; }
+    public Event<OrderPlacementSagaFailed> CheckoutFailed { get; private set; }
     
     public Event<InventoryReserved> InventoryReserved { get; private set; }
     public Event<InventoryReservationFailed> InventoryReservationFailed { get; private set; }
@@ -80,7 +80,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
     public Event<PaymentIntentCancellationFailed> PaymentIntentCancellationFailed { get; private set; }
 
     public Event<OrderPlaced> OrderPlaced { get; private set; }
-    public Event<Services.Ordering.OrderPlacementFailed> OrderPlacementFailed { get; private set; }
+    public Event<OrderPlacementFailed> OrderPlacementFailed { get; private set; }
     
     public Event<OrderPaid> OrderPaid { get; private set; }
     public Event<OrderPaymentFailed> OrderPaymentFailed { get; private set; }
@@ -149,7 +149,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
             When(InventoryReservationFailed)
                 .ThenAsync(async context =>
                 {
-                    var message = new OrderPlacementFailed(context.Saga.OrderId, "");
+                    var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
                     await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
                     {
                         sendContext.RequestId = context.Saga.StartCheckoutRequestId;
@@ -193,7 +193,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
             When(OrderPlaced, context => context.Saga.IsPaymentConfirmationRequired)
                 .ThenAsync(async context =>
                 {
-                    var message = new OrderPlacementCompleted(context.Saga.OrderId, true);
+                    var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, true);
                     await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
                     {
                         sendContext.RequestId = context.Saga.StartCheckoutRequestId;
@@ -221,7 +221,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
             When(OrderPaid)
                 .ThenAsync(context =>
                 {
-                    var message = new OrderPlacementCompleted(context.Saga.OrderId, false);
+                    var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, false);
                     return context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
                     {
                         sendContext.RequestId = context.Saga.StartCheckoutRequestId;
@@ -236,7 +236,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .If(context => context.Saga.IsCompensated, binder =>
                     binder.ThenAsync(async context =>
                     {
-                        var message = new OrderPlacementFailed(context.Saga.OrderId, "");
+                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
                         await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
                         {
                             sendContext.RequestId = context.Saga.StartCheckoutRequestId;
@@ -249,7 +249,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .If(context => context.Saga.IsCompensationCompleted, binder =>
                     binder.ThenAsync(async context =>
                     {
-                        var message = new OrderPlacementFailed(context.Saga.OrderId, "");
+                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
                         await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
                         {
                             sendContext.RequestId = context.Saga.StartCheckoutRequestId;
@@ -262,7 +262,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .If(context => context.Saga.IsCompensated, binder =>
                     binder.ThenAsync(async context =>
                     {
-                        var message = new OrderPlacementFailed(context.Saga.OrderId, "");
+                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
                         await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
                         {
                             sendContext.RequestId = context.Saga.StartCheckoutRequestId;
@@ -275,7 +275,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .If(context => context.Saga.IsCompensationCompleted, binder =>
                     binder.ThenAsync(async context =>
                     {
-                        var message = new OrderPlacementFailed(context.Saga.OrderId, "");
+                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
                         await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
                         {
                             sendContext.RequestId = context.Saga.StartCheckoutRequestId;
@@ -288,7 +288,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .If(context => context.Saga.IsCompensated, binder =>
                     binder.ThenAsync(async context =>
                     {
-                        var message = new OrderPlacementFailed(context.Saga.OrderId, "");
+                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
                         await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
                         {
                             sendContext.RequestId = context.Saga.StartCheckoutRequestId;
@@ -301,7 +301,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .If(context => context.Saga.IsCompensationCompleted, binder =>
                     binder.ThenAsync(async context =>
                     {
-                        var message = new OrderPlacementFailed(context.Saga.OrderId, "");
+                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
                         await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
                         {
                             sendContext.RequestId = context.Saga.StartCheckoutRequestId;

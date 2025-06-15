@@ -5,7 +5,6 @@ using Web.Services.Inventory;
 using Web.Services.Ordering;
 using Web.Services.Payment;
 using Web.Services.Wallet;
-using OrderPlacementFailed = Web.Checkout.OrderPlacement.OrderPlacementFailed;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,8 +17,8 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddSagaStateMachine<OrderPaymentStateMachine, OrderPaymentState>()
         .InMemoryRepository();
     
-    cfg.AddRequestClient<StartOrderPlacement>();
-    cfg.AddRequestClient<ConfirmOrderPayment>();
+    cfg.AddRequestClient<StartOrderPlacementSaga>();
+    cfg.AddRequestClient<StartOrderPaymentSaga>();
     
     cfg.AddConsumer<ReserveInventoryConsumer>().Endpoint(c => c.Name = "reserve-inventory");
     cfg.AddConsumer<CancelReservationConsumer>().Endpoint(c => c.Name = "cancel-reservation");
@@ -47,13 +46,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacement> requestClient, CancellationToken cancellationToken) =>
+app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacementSaga> requestClient, CancellationToken cancellationToken) =>
 {
-    var command = new StartOrderPlacement(Guid.CreateVersion7(), Guid.CreateVersion7(), 10, 5, []);
+    var command = new StartOrderPlacementSaga(Guid.CreateVersion7(), Guid.CreateVersion7(), 10, 5, []);
     var response = await requestClient
-        .GetResponse<OrderPlacementCompleted, OrderPlacementFailed>(command, cancellationToken);
+        .GetResponse<OrderPlacementSagaCompleted, OrderPlacementSagaFailed>(command, cancellationToken);
 
-    if (response.Is(out Response<OrderPlacementCompleted>? completed))
+    if (response.Is(out Response<OrderPlacementSagaCompleted>? completed))
     {
         if (completed.Message.IsPaymentConfirmationRequired)
         {
@@ -65,7 +64,7 @@ app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacement> requestCli
         return Results.Ok("Checkout completed");
     }
 
-    if (response.Is(out Response<OrderPlacementFailed>? failed))
+    if (response.Is(out Response<OrderPlacementSagaFailed>? failed))
     {
         Console.WriteLine("Checkout failed");
         return Results.BadRequest(failed.Message.Reason);
@@ -74,10 +73,10 @@ app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacement> requestCli
     throw new Exception("Unknown response");
 });
 
-app.MapGet("checkout/{orderId}/confirm", async (Guid orderId, IRequestClient<ConfirmOrderPayment> requestClient, 
+app.MapGet("checkout/{orderId}/confirm", async (Guid orderId, IRequestClient<StartOrderPaymentSaga> requestClient, 
     CancellationToken cancellationToken) =>
 {
-    var command = new ConfirmOrderPayment(orderId, Guid.CreateVersion7());
+    var command = new StartOrderPaymentSaga(orderId, Guid.CreateVersion7());
     var response = await requestClient
         .GetResponse<OrderPaymentSagaCompleted, OrderPaymentSagaFailed>(command, cancellationToken);
 
