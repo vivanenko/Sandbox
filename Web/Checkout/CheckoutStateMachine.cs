@@ -264,7 +264,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
                         sendContext.RequestId = context.Saga.ConfirmCheckoutRequestId;
                     });
                 })
-                .Finalize()
+                .TransitionTo(WaitingForCheckoutConfirmation)
         );
         
         During(WaitingForOrderPayment,
