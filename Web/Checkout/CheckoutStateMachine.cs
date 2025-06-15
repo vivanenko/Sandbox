@@ -66,7 +66,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
     public State Compensating { get; private set; }
 
     public Event<StartCheckout> StartCheckout { get; private set; }
-    public Event<CheckoutOrderPlaced> CheckoutOrderPlaced { get; private set; }
+    public Event<CheckoutConfirmationRequested> CheckoutConfirmationRequested { get; private set; }
     public Event<ConfirmCheckout> ConfirmCheckout { get; private set; }
     public Event<CheckoutCompleted> CheckoutCompleted { get; private set; }
     public Event<CheckoutFailed> CheckoutFailed { get; private set; }
@@ -102,7 +102,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
         InstanceState(x => x.CurrentState);
 
         Event(() => StartCheckout, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => CheckoutOrderPlaced, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => CheckoutConfirmationRequested, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => ConfirmCheckout, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => CheckoutCompleted, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => CheckoutFailed, x => x.CorrelateById(context => context.Message.OrderId));
@@ -212,7 +212,7 @@ public class CheckoutStateMachine : MassTransitStateMachine<CheckoutState>
             When(OrderPlaced, context => context.Saga.IsPaymentConfirmationRequired)
                 .ThenAsync(async context =>
                 {
-                    var message = new CheckoutOrderPlaced(context.Saga.OrderId);
+                    var message = new CheckoutConfirmationRequested(context.Saga.OrderId);
                     await context.Send(context.Saga.StartCheckoutResponseAddress, message, sendContext =>
                     {
                         sendContext.RequestId = context.Saga.StartCheckoutRequestId;

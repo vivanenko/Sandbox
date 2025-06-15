@@ -49,9 +49,9 @@ app.MapGet("checkout/run", async (IRequestClient<StartCheckout> requestClient, C
 {
     var command = new StartCheckout(Guid.CreateVersion7(), Guid.CreateVersion7(), 10, 5, []);
     var response = await requestClient
-        .GetResponse<CheckoutOrderPlaced, CheckoutCompleted, CheckoutFailed>(command, cancellationToken);
+        .GetResponse<CheckoutConfirmationRequested, CheckoutCompleted, CheckoutFailed>(command, cancellationToken);
 
-    if (response.Is(out Response<CheckoutOrderPlaced>? succeeded))
+    if (response.Is(out Response<CheckoutConfirmationRequested>? succeeded))
     {
         Console.WriteLine("Checkout: Confirmation required");
         return Results.Ok(succeeded.Message.OrderId);
