@@ -5,6 +5,7 @@ using Web.Services.Inventory;
 using Web.Services.Ordering;
 using Web.Services.Payment;
 using Web.Services.Wallet;
+using OrderPlacementFailed = Web.Checkout.OrderPlacement.OrderPlacementFailed;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +13,7 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddMassTransit(cfg =>
 {
-    cfg.AddSagaStateMachine<CheckoutStateMachine, CheckoutState>()
+    cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
         .InMemoryRepository();
     cfg.AddSagaStateMachine<OrderPaymentStateMachine, OrderPaymentState>()
         .InMemoryRepository();
@@ -50,9 +51,9 @@ app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacement> requestCli
 {
     var command = new StartOrderPlacement(Guid.CreateVersion7(), Guid.CreateVersion7(), 10, 5, []);
     var response = await requestClient
-        .GetResponse<CheckoutCompleted, CheckoutFailed>(command, cancellationToken);
+        .GetResponse<OrderPlacementCompleted, OrderPlacementFailed>(command, cancellationToken);
 
-    if (response.Is(out Response<CheckoutCompleted>? completed))
+    if (response.Is(out Response<OrderPlacementCompleted>? completed))
     {
         if (completed.Message.IsPaymentConfirmationRequired)
         {
@@ -64,7 +65,7 @@ app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacement> requestCli
         return Results.Ok("Checkout completed");
     }
 
-    if (response.Is(out Response<CheckoutFailed>? failed))
+    if (response.Is(out Response<OrderPlacementFailed>? failed))
     {
         Console.WriteLine("Checkout failed");
         return Results.BadRequest(failed.Message.Reason);
