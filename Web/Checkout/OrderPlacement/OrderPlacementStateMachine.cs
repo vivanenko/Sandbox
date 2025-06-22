@@ -24,10 +24,10 @@ public class OrderPlacementState : SagaStateMachineInstance
     public bool IsInventoryReservationCancelled { get; set; }
     public bool IsInventoryReleaseFailed { get; set; }
 
-    public bool IsCoinsDeducted { get; set; }
-    public bool IsCoinsDeductionFailed { get; set; }
-    public bool IsCoinsRefunded { get; set; }
-    public bool IsCoinsRefundFailed { get; set; }
+    public bool IsCoinsHeld { get; set; }
+    public bool IsCoinsHoldFailed { get; set; }
+    public bool IsCoinsHoldCancelled { get; set; }
+    public bool IsCoinsHoldCancellationFailed { get; set; }
 
     public bool IsPaymentIntentCreated { get; set; }
     public bool IsPaymentIntentFailed { get; set; }
@@ -36,13 +36,13 @@ public class OrderPlacementState : SagaStateMachineInstance
     
     public bool IsOrderPlacementFailed { get; set; }
 
-    private bool IsAnyTransactionFailed => IsCoinsDeductionFailed || IsPaymentIntentFailed || IsOrderPlacementFailed;
+    private bool IsAnyTransactionFailed => IsCoinsHoldFailed || IsPaymentIntentFailed || IsOrderPlacementFailed;
     private bool IsAllTransactionsCompensated => IsInventoryReservationCancelled &&
-                                                 (!IsCoinsDeducted || IsCoinsRefunded) &&
+                                                 (!IsCoinsHeld || IsCoinsHoldCancelled) &&
                                                  (!IsPaymentIntentCreated || IsPaymentIntentCancelled);
     public bool IsCompensated => IsAnyTransactionFailed && IsAllTransactionsCompensated;
     public bool IsCompensationCompleted => (IsInventoryReservationCancelled || IsInventoryReleaseFailed) &&
-                                           (IsCoinsRefunded || IsCoinsRefundFailed) &&
+                                           (IsCoinsHoldCancelled || IsCoinsHoldCancellationFailed) &&
                                            (IsPaymentIntentCancelled || IsPaymentIntentCancellationFailed);
     
     public Guid RequestId { get; set; }
@@ -54,7 +54,7 @@ public class OrderPlacementState : SagaStateMachineInstance
 public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacementState>
 {
     public State WaitingForInventory { get; private set; }
-    public State WaitingForCoinsDeduction { get; private set; }
+    public State WaitingForCoinsHold { get; private set; }
     public State WaitingForPaymentIntent { get; private set; }
     public State WaitingForOrderPlacement { get; private set; }
     public State WaitingForOrderPayment { get; private set; }
@@ -69,10 +69,10 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
     public Event<InventoryReservationCancelled> InventoryReservationCancelled { get; private set; }
     public Event<InventoryReleaseFailed> InventoryReleaseFailed { get; private set; }
 
-    public Event<CoinsDeducted> CoinsDeducted { get; private set; }
-    public Event<CoinsDeductionFailed> CoinsDeductionFailed { get; private set; }
-    public Event<CoinsRefunded> CoinsRefunded { get; private set; }
-    public Event<CoinsRefundFailed> CoinsRefundFailed { get; private set; }
+    public Event<CoinsHeld> CoinsHeld { get; private set; }
+    public Event<CoinsHoldFailed> CoinsHoldFailed { get; private set; }
+    public Event<HoldCancelled> HoldCancelled { get; private set; }
+    public Event<HoldCancellationFailed> HoldCancellationFailed { get; private set; }
 
     public Event<PaymentIntentCreated> PaymentIntentCreated { get; private set; }
     public Event<PaymentIntentFailed> PaymentIntentFailed { get; private set; }
@@ -98,10 +98,10 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
         Event(() => InventoryReservationCancelled, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => InventoryReleaseFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
-        Event(() => CoinsDeducted, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => CoinsDeductionFailed, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => CoinsRefunded, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => CoinsRefundFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => CoinsHeld, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => CoinsHoldFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => HoldCancelled, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => HoldCancellationFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Event(() => PaymentIntentCreated, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => PaymentIntentFailed, x => x.CorrelateById(context => context.Message.OrderId));
@@ -138,8 +138,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
         During(WaitingForInventory,
             When(InventoryReserved)
                 .IfElse(context => context.Saga.CoinsAmount > 0,
-                    binder => binder.Send(new Uri("queue:deduct-coins"), context => new DeductCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
-                                    .TransitionTo(WaitingForCoinsDeduction),
+                    binder => binder.Send(new Uri("queue:hold-coins"), context => new HoldCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                                    .TransitionTo(WaitingForCoinsHold),
                     binder => binder.IfElse(context => context.Saga.Amount > 0,
                         innerBinder => innerBinder.Send(new Uri("queue:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount)).TransitionTo(WaitingForPaymentIntent),
                         innerBinder => innerBinder.Send(new Uri("queue:place-order"), context => new PlaceOrder(context.Saga.OrderId)).TransitionTo(WaitingForOrderPlacement)
@@ -158,9 +158,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .Finalize()
         );
 
-        During(WaitingForCoinsDeduction,
-            When(CoinsDeducted)
-                .Then(context => context.Saga.IsCoinsDeducted = true)
+        During(WaitingForCoinsHold,
+            When(CoinsHeld)
+                .Then(context => context.Saga.IsCoinsHeld = true)
                 .IfElse(context => context.Saga.Amount > 0,
                     binder => binder.Send(new Uri("queue:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount))
                                     .TransitionTo(WaitingForPaymentIntent),
@@ -168,8 +168,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                                     .TransitionTo(WaitingForOrderPlacement)
                 ),
 
-            When(CoinsDeductionFailed)
-                .Then(context => context.Saga.IsCoinsDeductionFailed = true)
+            When(CoinsHoldFailed)
+                .Then(context => context.Saga.IsCoinsHoldFailed = true)
                 .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
                 .TransitionTo(Compensating)
         );
@@ -182,8 +182,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
 
             When(PaymentIntentFailed)
                 .Then(context => context.Saga.IsPaymentIntentFailed = true)
-                .If(context => context.Saga.IsCoinsDeducted,
-                    binder => binder.Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                .If(context => context.Saga.IsCoinsHeld,
+                    binder => binder.Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                 )
                 .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
                 .TransitionTo(Compensating)
@@ -208,8 +208,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
             When(OrderPlacementFailed)
                 .Then(context => context.Saga.IsOrderPlacementFailed = true)
                 .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
-                .If(context => context.Saga.IsCoinsDeducted,
-                    binder => binder.Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                .If(context => context.Saga.IsCoinsHeld,
+                    binder => binder.Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                 )
                 .If(context => context.Saga.IsPaymentIntentCreated,
                     binder => binder.Send(new Uri("queue:cancel-payment-intent"), context => new CancelPaymentIntent(context.Saga.OrderId))
@@ -257,8 +257,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     })
                     .Finalize()),
 
-            When(CoinsRefunded)
-                .Then(context => context.Saga.IsCoinsRefunded = true)
+            When(HoldCancelled)
+                .Then(context => context.Saga.IsCoinsHoldCancelled = true)
                 .If(context => context.Saga.IsCompensated, binder =>
                     binder.ThenAsync(async context =>
                     {
@@ -270,8 +270,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     })
                     .Finalize()),
 
-            When(CoinsRefundFailed)
-                .Then(context => context.Saga.IsCoinsRefundFailed = true)
+            When(HoldCancellationFailed)
+                .Then(context => context.Saga.IsCoinsHoldCancellationFailed = true)
                 .If(context => context.Saga.IsCompensationCompleted, binder =>
                     binder.ThenAsync(async context =>
                     {
