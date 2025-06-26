@@ -1,6 +1,7 @@
 using MassTransit;
 using Web.Services.Ordering;
 using Web.Services.Payment;
+using Web.Services.Wallet;
 
 namespace Web.Checkout.OrderPayment;
 
@@ -18,13 +19,20 @@ public class OrderPaymentState : SagaStateMachineInstance
 
 public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentState>
 {
+    public State WaitingForHoldCommit { get; set; }
     public State WaitingForPaymentConfirmation { get; private set; }
     public State WaitingForOrderPayment { get; private set; }
-    public State Compensating { get; private set; }
+    public State WaitingForPaymentRefund { get; private set; }
+    public State WaitingForCoinsRefund { get; private set; }
     
     public Event<StartOrderPaymentSaga> StartOrderPaymentSaga { get; private set; }
     public Event<OrderPaymentSagaFailed> OrderPaymentSagaFailed { get; private set; }
     public Event<OrderPaymentSagaCompleted> OrderPaymentSagaCompleted { get; private set; }
+
+    public Event<HoldCommitted> HoldCommitted { get; set; }
+    public Event<HoldCommitFailed> HoldCommitFailed { get; set; }
+    public Event<CoinsRefunded> CoinsRefunded { get; set; }
+    public Event<CoinsRefundFailed> CoinsRefundFailed { get; set; }
     
     public Event<PaymentConfirmed> PaymentConfirmed { get; private set; }
     public Event<PaymentFailed> PaymentFailed { get; private set; }
@@ -39,8 +47,13 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
         InstanceState(x => x.CurrentState);
         
         Event(() => StartOrderPaymentSaga, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => OrderPaymentSagaFailed, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => OrderPaymentSagaCompleted, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => OrderPaymentSagaFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        
+        Event(() => HoldCommitted, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => HoldCommitFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => CoinsRefunded, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => CoinsRefundFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Event(() => PaymentConfirmed, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => PaymentFailed, x => x.CorrelateById(context => context.Message.OrderId));
@@ -63,16 +76,16 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                     context.Saga.RequestId = context.RequestId.Value;
                     context.Saga.ResponseAddress = context.ResponseAddress;
                 })
-                .Send(new Uri("queue:confirm-payment"), context => new ConfirmPayment(context.Saga.OrderId))
-                .TransitionTo(WaitingForPaymentConfirmation)
+                .Send(new Uri("queue:commit-hold"), context => new CommitHold(context.Saga.OrderId, context.Saga.UserId))
+                .TransitionTo(WaitingForHoldCommit)
         );
         
-        During(WaitingForPaymentConfirmation,
-            When(PaymentConfirmed)
-                .Send(new Uri("queue:move-order-to-paid-state"), context => new MoveOrderToPaidState(context.Saga.OrderId))
-                .TransitionTo(WaitingForOrderPayment),
+        During(WaitingForHoldCommit,
+            When(HoldCommitted)
+                .Send(new Uri("queue:confirm-payment"), context => new ConfirmPayment(context.Saga.OrderId))
+                .TransitionTo(WaitingForPaymentConfirmation),
             
-            When(PaymentFailed)
+            When(HoldCommitFailed)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPaymentSagaFailed(context.Saga.OrderId, "");
@@ -82,6 +95,16 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                     });
                 })
                 .Finalize()
+        );
+        
+        During(WaitingForPaymentConfirmation,
+            When(PaymentConfirmed)
+                .Send(new Uri("queue:move-order-to-paid-state"), context => new MoveOrderToPaidState(context.Saga.OrderId))
+                .TransitionTo(WaitingForOrderPayment),
+            
+            When(PaymentFailed)
+                .Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
+                .TransitionTo(WaitingForCoinsRefund)
         );
         
         During(WaitingForOrderPayment,
@@ -96,13 +119,23 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                 })
                 .Finalize(),
             
-            When(OrderPaymentSagaFailed)
+            When(OrderPaymentFailed)
                 .Send(new Uri("queue:refund-payment"), context => new RefundPayment(context.Saga.OrderId))
-                .TransitionTo(Compensating)
+                .TransitionTo(WaitingForPaymentRefund)
         );
         
-        During(Compensating,
+        During(WaitingForPaymentRefund,
             When(PaymentRefunded)
+                .Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
+                .TransitionTo(WaitingForCoinsRefund),
+            
+            When(PaymentRefundFailed)
+                .Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
+                .TransitionTo(WaitingForCoinsRefund)
+        );
+        
+        During(WaitingForCoinsRefund,
+            When(CoinsRefunded)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPaymentSagaFailed(context.Saga.OrderId, "");
@@ -113,7 +146,7 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                 })
                 .Finalize(),
             
-            When(PaymentRefundFailed)
+            When(CoinsRefundFailed)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPaymentSagaFailed(context.Saga.OrderId, "");

@@ -30,6 +30,8 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddConsumer<ConfirmPaymentConsumer>().Endpoint(c => c.Name = "confirm-payment");
     cfg.AddConsumer<RefundPaymentConsumer>().Endpoint(c => c.Name = "refund-payment");
     cfg.AddConsumer<MoveOrderToPaidStateConsumer>().Endpoint(c => c.Name = "move-order-to-paid-state");
+    cfg.AddConsumer<CommitHoldConsumer>().Endpoint(c => c.Name = "commit-hold");
+    cfg.AddConsumer<RefundCoinsConsumer>().Endpoint(c => c.Name = "refund-coins");
     
     cfg.UsingInMemory((context, config) =>
     {
