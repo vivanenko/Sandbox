@@ -21,9 +21,6 @@ public class OrderPlacementState : SagaStateMachineInstance
 
     public DateTime CreatedAt { get; set; }
     
-    public bool IsCoinsHeld { get; set; }
-    public bool IsPaymentIntentCreated { get; set; }
-
     public Guid RequestId { get; set; }
     public Uri ResponseAddress { get; set; }
 }
@@ -160,7 +157,6 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
 
         During(WaitingForCoinsHold,
             When(CoinsHeld)
-                .Then(context => context.Saga.IsCoinsHeld = true)
                 .IfElse(context => context.Saga.Amount > 0,
                     binder => binder.Send(new Uri("queue:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount))
                                     .TransitionTo(WaitingForPaymentIntent),
@@ -185,12 +181,11 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
 
         During(WaitingForPaymentIntent,
             When(PaymentIntentCreated)
-                .Then(context => context.Saga.IsPaymentIntentCreated = true)
                 .Send(new Uri("queue:place-order"), context => new PlaceOrder(context.Saga.OrderId))
                 .TransitionTo(WaitingForOrderPlacement),
 
             When(PaymentIntentFailed)
-                .If(context => context.Saga.IsCoinsHeld,
+                .If(context => context.Saga.CoinsAmount > 0,
                     binder => binder.Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                                     .TransitionTo(WaitingForHoldCancellation)
                 )
@@ -200,7 +195,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
         
         During(WaitingForPaymentCancellation,
             When(PaymentIntentCancelled)
-                .IfElse(context => context.Saga.IsCoinsHeld, 
+                .IfElse(context => context.Saga.CoinsAmount > 0, 
                     binder => binder
                         .Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                         .TransitionTo(WaitingForHoldCancellation),
@@ -210,7 +205,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 ),
             
             When(PaymentIntentCancellationFailed)
-                .IfElse(context => context.Saga.IsCoinsHeld, 
+                .IfElse(context => context.Saga.CoinsAmount > 0, 
                     binder => binder
                         .Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                         .TransitionTo(WaitingForHoldCancellation),
@@ -233,10 +228,10 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .Finalize(),
             
             When(OrderPlacementFailed)
-                .IfElse(context => context.Saga.IsPaymentIntentCreated,
+                .IfElse(context => context.Saga.Amount > 0,
                     binder => binder.Send(new Uri("queue:cancel-payment-intent"), context => new CancelPaymentIntent(context.Saga.OrderId))
                                     .TransitionTo(WaitingForPaymentCancellation),
-                    binder => binder.IfElse(context => context.Saga.IsCoinsHeld,
+                    binder => binder.IfElse(context => context.Saga.CoinsAmount > 0,
                         innerBinder => innerBinder
                             .Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                             .TransitionTo(WaitingForHoldCancellation),
