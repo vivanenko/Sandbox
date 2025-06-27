@@ -21,34 +21,11 @@ public class OrderPlacementState : SagaStateMachineInstance
 
     public DateTime CreatedAt { get; set; }
     
-    public bool IsInventoryReservationCancelled { get; set; }
-    public bool IsInventoryReleaseFailed { get; set; }
-
     public bool IsCoinsHeld { get; set; }
-    public bool IsCoinsHoldFailed { get; set; }
-    public bool IsCoinsHoldCancelled { get; set; }
-    public bool IsCoinsHoldCancellationFailed { get; set; }
-
     public bool IsPaymentIntentCreated { get; set; }
-    public bool IsPaymentIntentFailed { get; set; }
-    public bool IsPaymentIntentCancelled { get; set; }
-    public bool IsPaymentIntentCancellationFailed { get; set; }
-    
-    public bool IsOrderPlacementFailed { get; set; }
 
-    private bool IsAnyTransactionFailed => IsCoinsHoldFailed || IsPaymentIntentFailed || IsOrderPlacementFailed;
-    private bool IsAllTransactionsCompensated => IsInventoryReservationCancelled &&
-                                                 (!IsCoinsHeld || IsCoinsHoldCancelled) &&
-                                                 (!IsPaymentIntentCreated || IsPaymentIntentCancelled);
-    public bool IsCompensated => IsAnyTransactionFailed && IsAllTransactionsCompensated;
-    public bool IsCompensationCompleted => (IsInventoryReservationCancelled || IsInventoryReleaseFailed) &&
-                                           (IsCoinsHoldCancelled || IsCoinsHoldCancellationFailed) &&
-                                           (IsPaymentIntentCancelled || IsPaymentIntentCancellationFailed);
-    
     public Guid RequestId { get; set; }
     public Uri ResponseAddress { get; set; }
-    
-    public bool IsPaymentConfirmationRequired => Amount > 0;
 }
 
 public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacementState>
@@ -57,8 +34,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
     public State WaitingForCoinsHold { get; private set; }
     public State WaitingForPaymentIntent { get; private set; }
     public State WaitingForOrderPlacement { get; private set; }
-    public State WaitingForOrderPayment { get; private set; }
-    public State Compensating { get; private set; }
+    public State WaitingForReservationCancellation { get; private set; }
+    public State WaitingForHoldCancellation { get; private set; }
+    public State WaitingForPaymentCancellation { get; private set; }
 
     public Event<StartOrderPlacementSaga> StartOrderPlacement { get; private set; }
     public Event<OrderPlacementSagaCompleted> OrderPlacementSagaCompleted { get; private set; }
@@ -81,9 +59,6 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
 
     public Event<OrderPlaced> OrderPlaced { get; private set; }
     public Event<OrderPlacementFailed> OrderPlacementFailed { get; private set; }
-    
-    public Event<OrderPaid> OrderPaid { get; private set; }
-    public Event<OrderPaymentFailed> OrderPaymentFailed { get; private set; }
     
     public OrderPlacementStateMachine()
     {
@@ -110,9 +85,6 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
         
         Event(() => OrderPlaced, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => OrderPlacementFailed, x => x.CorrelateById(context => context.Message.OrderId));
-        
-        Event(() => OrderPaid, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => OrderPaymentFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Initially(
             When(StartOrderPlacement)
@@ -141,12 +113,40 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     binder => binder.Send(new Uri("queue:hold-coins"), context => new HoldCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                                     .TransitionTo(WaitingForCoinsHold),
                     binder => binder.IfElse(context => context.Saga.Amount > 0,
-                        innerBinder => innerBinder.Send(new Uri("queue:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount)).TransitionTo(WaitingForPaymentIntent),
-                        innerBinder => innerBinder.Send(new Uri("queue:place-order"), context => new PlaceOrder(context.Saga.OrderId)).TransitionTo(WaitingForOrderPlacement)
+                        innerBinder => innerBinder
+                            .Send(new Uri("queue:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount))
+                            .TransitionTo(WaitingForPaymentIntent),
+                        innerBinder => innerBinder
+                            .Send(new Uri("queue:place-order"), context => new PlaceOrder(context.Saga.OrderId))
+                            .TransitionTo(WaitingForOrderPlacement)
                     )
                 ),
 
             When(InventoryReservationFailed)
+                .ThenAsync(async context =>
+                {
+                    var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
+                    await context.Send(context.Saga.ResponseAddress, message, sendContext =>
+                    {
+                        sendContext.RequestId = context.Saga.RequestId;
+                    });
+                })
+                .Finalize()
+        );
+
+        During(WaitingForReservationCancellation,
+            When(InventoryReservationCancelled)
+                .ThenAsync(async context =>
+                {
+                    var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
+                    await context.Send(context.Saga.ResponseAddress, message, sendContext =>
+                    {
+                        sendContext.RequestId = context.Saga.RequestId;
+                    });
+                })
+                .Finalize(),
+            
+            When(InventoryReleaseFailed)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
@@ -169,9 +169,18 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 ),
 
             When(CoinsHoldFailed)
-                .Then(context => context.Saga.IsCoinsHoldFailed = true)
                 .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
-                .TransitionTo(Compensating)
+                .TransitionTo(WaitingForReservationCancellation)
+        );
+        
+        During(WaitingForHoldCancellation,
+            When(HoldCancelled)
+                .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                .TransitionTo(WaitingForReservationCancellation),
+            
+            When(HoldCancellationFailed)
+                .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                .TransitionTo(WaitingForReservationCancellation)
         );
 
         During(WaitingForPaymentIntent,
@@ -181,16 +190,38 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .TransitionTo(WaitingForOrderPlacement),
 
             When(PaymentIntentFailed)
-                .Then(context => context.Saga.IsPaymentIntentFailed = true)
                 .If(context => context.Saga.IsCoinsHeld,
                     binder => binder.Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                                    .TransitionTo(WaitingForHoldCancellation)
                 )
                 .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
-                .TransitionTo(Compensating)
+                .TransitionTo(WaitingForReservationCancellation)
+        );
+        
+        During(WaitingForPaymentCancellation,
+            When(PaymentIntentCancelled)
+                .IfElse(context => context.Saga.IsCoinsHeld, 
+                    binder => binder
+                        .Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                        .TransitionTo(WaitingForHoldCancellation),
+                    binder => binder
+                        .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                        .TransitionTo(WaitingForReservationCancellation)
+                ),
+            
+            When(PaymentIntentCancellationFailed)
+                .IfElse(context => context.Saga.IsCoinsHeld, 
+                    binder => binder
+                        .Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                        .TransitionTo(WaitingForHoldCancellation),
+                    binder => binder
+                        .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                        .TransitionTo(WaitingForReservationCancellation)
+                )
         );
 
         During(WaitingForOrderPlacement,
-            When(OrderPlaced, context => context.Saga.IsPaymentConfirmationRequired)
+            When(OrderPlaced)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, true);
@@ -201,115 +232,21 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 })
                 .Finalize(),
             
-            When(OrderPlaced, context => !context.Saga.IsPaymentConfirmationRequired)
-                .Send(new Uri("queue:move-order-to-paid-state"), context => new MoveOrderToPaidState(context.Saga.OrderId))
-                .TransitionTo(WaitingForOrderPayment),
-            
             When(OrderPlacementFailed)
-                .Then(context => context.Saga.IsOrderPlacementFailed = true)
-                .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
-                .If(context => context.Saga.IsCoinsHeld,
-                    binder => binder.Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
-                )
-                .If(context => context.Saga.IsPaymentIntentCreated,
+                .IfElse(context => context.Saga.IsPaymentIntentCreated,
                     binder => binder.Send(new Uri("queue:cancel-payment-intent"), context => new CancelPaymentIntent(context.Saga.OrderId))
+                                    .TransitionTo(WaitingForPaymentCancellation),
+                    binder => binder.IfElse(context => context.Saga.IsCoinsHeld,
+                        innerBinder => innerBinder
+                            .Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                            .TransitionTo(WaitingForHoldCancellation),
+                        innerBinder => innerBinder
+                            .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                            .TransitionTo(WaitingForReservationCancellation)
+                        )
                 )
-                .TransitionTo(Compensating)
         );
 
-        During(WaitingForOrderPayment,
-            When(OrderPaid)
-                .ThenAsync(context =>
-                {
-                    var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, false);
-                    return context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                    {
-                        sendContext.RequestId = context.Saga.RequestId;
-                    });
-                })
-                .Finalize()
-        );
-        
-        During(Compensating,
-            When(InventoryReservationCancelled)
-                .Then(context => context.Saga.IsInventoryReservationCancelled = true)
-                .If(context => context.Saga.IsCompensated, binder =>
-                    binder.ThenAsync(async context =>
-                    {
-                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                        {
-                            sendContext.RequestId = context.Saga.RequestId;
-                        });
-                    })
-                    .Finalize()),
-
-            When(InventoryReleaseFailed)
-                .Then(context => context.Saga.IsInventoryReleaseFailed = true)
-                .If(context => context.Saga.IsCompensationCompleted, binder =>
-                    binder.ThenAsync(async context =>
-                    {
-                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                        {
-                            sendContext.RequestId = context.Saga.RequestId;
-                        });
-                    })
-                    .Finalize()),
-
-            When(HoldCancelled)
-                .Then(context => context.Saga.IsCoinsHoldCancelled = true)
-                .If(context => context.Saga.IsCompensated, binder =>
-                    binder.ThenAsync(async context =>
-                    {
-                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                        {
-                            sendContext.RequestId = context.Saga.RequestId;
-                        });
-                    })
-                    .Finalize()),
-
-            When(HoldCancellationFailed)
-                .Then(context => context.Saga.IsCoinsHoldCancellationFailed = true)
-                .If(context => context.Saga.IsCompensationCompleted, binder =>
-                    binder.ThenAsync(async context =>
-                    {
-                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                        {
-                            sendContext.RequestId = context.Saga.RequestId;
-                        });
-                    })
-                    .Finalize()),
-            
-            When(PaymentIntentCancelled)
-                .Then(context => context.Saga.IsPaymentIntentCancelled = true)
-                .If(context => context.Saga.IsCompensated, binder =>
-                    binder.ThenAsync(async context =>
-                    {
-                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                        {
-                            sendContext.RequestId = context.Saga.RequestId;
-                        });
-                    })
-                    .Finalize()),
-            
-            When(PaymentIntentCancellationFailed)
-                .Then(context => context.Saga.IsPaymentIntentCancellationFailed = true)
-                .If(context => context.Saga.IsCompensationCompleted, binder =>
-                    binder.ThenAsync(async context =>
-                    {
-                        var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
-                        await context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                        {
-                            sendContext.RequestId = context.Saga.RequestId;
-                        });
-                    })
-                    .Finalize())
-        );
-        
         SetCompletedWhenFinalized();
     }
 }
