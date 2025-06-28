@@ -7,14 +7,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="MassTransit" Version="8.5.0" />
-        <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.0" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="OrderCancellation\" />
-      <Folder Include="Services\Cart\" />
+      <ProjectReference Include="..\Sandbox.Payment\Sandbox.Payment.csproj" />
     </ItemGroup>
 
 </Project>

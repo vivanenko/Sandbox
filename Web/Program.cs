@@ -33,10 +33,17 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddConsumer<CommitHoldConsumer>().Endpoint(c => c.Name = "commit-hold");
     cfg.AddConsumer<RefundCoinsConsumer>().Endpoint(c => c.Name = "refund-coins");
     
-    cfg.UsingInMemory((context, config) =>
+    cfg.UsingRabbitMq((context, config) =>
     {
+        config.Host("localhost", 5673, "/", _ => { });
         config.ConfigureEndpoints(context);
+        // config.Message<InventoryReserved>(t => t.SetEntityName("inventory:inventory-reserved"));
+        // config.Message<InventoryReservationFailed>(t => t.SetEntityName("inventory:inventory-reservation-failed"));
     });
+    // cfg.UsingInMemory((context, config) =>
+    // {
+    //     config.ConfigureEndpoints(context);
+    // });
 });
 
 var app = builder.Build();
