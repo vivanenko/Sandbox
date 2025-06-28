@@ -41,7 +41,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
     
     public Event<InventoryReserved> InventoryReserved { get; private set; }
     public Event<InventoryReservationFailed> InventoryReservationFailed { get; private set; }
-    public Event<InventoryReservationCancelled> InventoryReservationCancelled { get; private set; }
+    public Event<InventoryReleased> InventoryReleased { get; private set; }
     public Event<InventoryReleaseFailed> InventoryReleaseFailed { get; private set; }
 
     public Event<CoinsHeld> CoinsHeld { get; private set; }
@@ -67,7 +67,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
         
         Event(() => InventoryReserved, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => InventoryReservationFailed, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => InventoryReservationCancelled, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => InventoryReleased, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => InventoryReleaseFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Event(() => CoinsHeld, x => x.CorrelateById(context => context.Message.OrderId));
@@ -132,7 +132,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
         );
 
         During(WaitingForReservationCancellation,
-            When(InventoryReservationCancelled)
+            When(InventoryReleased)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
@@ -165,17 +165,17 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 ),
 
             When(CoinsHoldFailed)
-                .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                .Send(new Uri("queue:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
                 .TransitionTo(WaitingForReservationCancellation)
         );
         
         During(WaitingForHoldCancellation,
             When(HoldCancelled)
-                .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                .Send(new Uri("queue:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
                 .TransitionTo(WaitingForReservationCancellation),
             
             When(HoldCancellationFailed)
-                .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                .Send(new Uri("queue:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
                 .TransitionTo(WaitingForReservationCancellation)
         );
 
@@ -189,7 +189,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     binder => binder.Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                                     .TransitionTo(WaitingForHoldCancellation)
                 )
-                .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                .Send(new Uri("queue:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
                 .TransitionTo(WaitingForReservationCancellation)
         );
         
@@ -200,7 +200,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                         .Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                         .TransitionTo(WaitingForHoldCancellation),
                     binder => binder
-                        .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                        .Send(new Uri("queue:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
                         .TransitionTo(WaitingForReservationCancellation)
                 ),
             
@@ -210,7 +210,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                         .Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                         .TransitionTo(WaitingForHoldCancellation),
                     binder => binder
-                        .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                        .Send(new Uri("queue:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
                         .TransitionTo(WaitingForReservationCancellation)
                 )
         );
@@ -236,7 +236,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                             .Send(new Uri("queue:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                             .TransitionTo(WaitingForHoldCancellation),
                         innerBinder => innerBinder
-                            .Send(new Uri("queue:cancel-reservation"), context => new CancelReservation(context.Saga.OrderId))
+                            .Send(new Uri("queue:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
                             .TransitionTo(WaitingForReservationCancellation)
                         )
                 )

@@ -2,17 +2,17 @@ using MassTransit;
 
 namespace Web.Services.Inventory;
 
-public class CancelReservationConsumer : IConsumer<CancelReservation>
+public class ReleaseInventoryConsumer : IConsumer<ReleaseInventory>
 {
-    public async Task Consume(ConsumeContext<CancelReservation> context)
+    public async Task Consume(ConsumeContext<ReleaseInventory> context)
     {
         var success = true;
         if (success)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Reservation has been cancelled");
+            Console.WriteLine("Inventory has been released");
             Console.ResetColor();
-            await context.Publish(new InventoryReservationCancelled(context.Message.OrderId));
+            await context.Publish(new InventoryReleased(context.Message.OrderId));
         }
         else
         {

@@ -21,7 +21,7 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddRequestClient<StartOrderPaymentSaga>();
     
     cfg.AddConsumer<ReserveInventoryConsumer>().Endpoint(c => c.Name = "reserve-inventory");
-    cfg.AddConsumer<CancelReservationConsumer>().Endpoint(c => c.Name = "cancel-reservation");
+    cfg.AddConsumer<ReleaseInventoryConsumer>().Endpoint(c => c.Name = "release-inventory");
     cfg.AddConsumer<HoldCoinsConsumer>().Endpoint(c => c.Name = "hold-coins");
     cfg.AddConsumer<CancelHoldConsumer>().Endpoint(c => c.Name = "cancel-hold");
     cfg.AddConsumer<CreatePaymentIntentConsumer>().Endpoint(c => c.Name = "create-payment-intent");
