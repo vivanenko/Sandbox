@@ -22,10 +22,10 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddMassTransit(cfg =>
 {
-    cfg.AddConsumer<CreatePaymentIntentConsumer>().Endpoint(c => c.Name = "create-payment-intent");
-    cfg.AddConsumer<CancelPaymentIntentConsumer>().Endpoint(c => c.Name = "cancel-payment-intent");
-    cfg.AddConsumer<ConfirmPaymentConsumer>().Endpoint(c => c.Name = "confirm-payment");
-    cfg.AddConsumer<RefundPaymentConsumer>().Endpoint(c => c.Name = "refund-payment");
+    cfg.AddConsumer<CreatePaymentIntentConsumer>().Endpoint(c => c.Name = "payment:create-payment-intent");
+    cfg.AddConsumer<CancelPaymentIntentConsumer>().Endpoint(c => c.Name = "payment:cancel-payment-intent");
+    cfg.AddConsumer<ConfirmPaymentConsumer>().Endpoint(c => c.Name = "payment:confirm-payment");
+    cfg.AddConsumer<RefundPaymentConsumer>().Endpoint(c => c.Name = "payment:refund-payment");
     
     cfg.UsingRabbitMq((context, config) =>
     {

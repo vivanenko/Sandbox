@@ -22,10 +22,10 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddMassTransit(cfg =>
 {
-    cfg.AddConsumer<HoldCoinsConsumer>().Endpoint(c => c.Name = "hold-coins");
-    cfg.AddConsumer<CancelHoldConsumer>().Endpoint(c => c.Name = "cancel-hold");
-    cfg.AddConsumer<CommitHoldConsumer>().Endpoint(c => c.Name = "commit-hold");
-    cfg.AddConsumer<RefundCoinsConsumer>().Endpoint(c => c.Name = "refund-coins");
+    cfg.AddConsumer<HoldCoinsConsumer>().Endpoint(c => c.Name = "wallet:hold-coins");
+    cfg.AddConsumer<CancelHoldConsumer>().Endpoint(c => c.Name = "wallet:cancel-hold");
+    cfg.AddConsumer<CommitHoldConsumer>().Endpoint(c => c.Name = "wallet:commit-hold");
+    cfg.AddConsumer<RefundCoinsConsumer>().Endpoint(c => c.Name = "wallet:refund-coins");
     
     cfg.UsingRabbitMq((context, config) =>
     {

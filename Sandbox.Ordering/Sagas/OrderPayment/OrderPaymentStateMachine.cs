@@ -76,13 +76,13 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                     context.Saga.RequestId = context.RequestId.Value;
                     context.Saga.ResponseAddress = context.ResponseAddress;
                 })
-                .Send(new Uri("queue:commit-hold"), context => new CommitHold(context.Saga.OrderId, context.Saga.UserId))
+                .Send(new Uri("queue:wallet:commit-hold"), context => new CommitHold(context.Saga.OrderId, context.Saga.UserId))
                 .TransitionTo(WaitingForHoldCommit)
         );
         
         During(WaitingForHoldCommit,
             When(HoldCommitted)
-                .Send(new Uri("queue:confirm-payment"), context => new ConfirmPayment(context.Saga.OrderId))
+                .Send(new Uri("queue:payment:confirm-payment"), context => new ConfirmPayment(context.Saga.OrderId))
                 .TransitionTo(WaitingForPaymentConfirmation),
             
             When(HoldCommitFailed)
@@ -103,7 +103,7 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                 .TransitionTo(WaitingForOrderPayment),
             
             When(PaymentFailed)
-                .Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
+                .Send(new Uri("queue:wallet:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
                 .TransitionTo(WaitingForCoinsRefund)
         );
         
@@ -120,17 +120,17 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                 .Finalize(),
             
             When(OrderPaymentFailed)
-                .Send(new Uri("queue:refund-payment"), context => new RefundPayment(context.Saga.OrderId))
+                .Send(new Uri("queue:payment:refund-payment"), context => new RefundPayment(context.Saga.OrderId))
                 .TransitionTo(WaitingForPaymentRefund)
         );
         
         During(WaitingForPaymentRefund,
             When(PaymentRefunded)
-                .Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
+                .Send(new Uri("queue:wallet:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
                 .TransitionTo(WaitingForCoinsRefund),
             
             When(PaymentRefundFailed)
-                .Send(new Uri("queue:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
+                .Send(new Uri("queue:wallet:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
                 .TransitionTo(WaitingForCoinsRefund)
         );
         
