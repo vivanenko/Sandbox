@@ -54,6 +54,14 @@ builder.Services.AddMassTransit(cfg =>
         config.Host("localhost", 5673, "/", _ => { });
         config.ConfigureEndpoints(context);
         
+        config.Message<StartOrderPlacementSaga>(x => x.SetEntityName("ordering:start-order-placement-saga"));
+        config.Message<OrderPlacementSagaCompleted>(x => x.SetEntityName("ordering:order-placement-saga-completed"));
+        config.Message<OrderPlacementSagaFailed>(x => x.SetEntityName("ordering:order-placement-saga-failed"));
+        
+        config.Message<StartOrderPaymentSaga>(x => x.SetEntityName("ordering:start-order-payment-saga"));
+        config.Message<OrderPaymentSagaCompleted>(x => x.SetEntityName("ordering:order-payment-saga-completed"));
+        config.Message<OrderPaymentSagaFailed>(x => x.SetEntityName("ordering:order-payment-saga-failed"));
+        
         config.Message<InventoryReserved>(x => x.SetEntityName("inventory:inventory-reserved"));
         config.Message<InventoryReservationFailed>(x => x.SetEntityName("inventory:inventory-reservation-failed"));
         config.Message<InventoryReleased>(x => x.SetEntityName("inventory:inventory-released"));
