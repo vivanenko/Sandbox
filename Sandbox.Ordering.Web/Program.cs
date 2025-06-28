@@ -24,8 +24,6 @@ builder.Services.AddMassTransit(cfg =>
     {
         config.Host("localhost", 5673, "/", _ => { });
         config.ConfigureEndpoints(context);
-        // config.Message<InventoryReserved>(t => t.SetEntityName("inventory:inventory-reserved"));
-        // config.Message<InventoryReservationFailed>(t => t.SetEntityName("inventory:inventory-reservation-failed"));
     });
 });
 
