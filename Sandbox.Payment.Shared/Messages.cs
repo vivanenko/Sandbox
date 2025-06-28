@@ -1,4 +1,4 @@
-namespace Web.Services.Payment;
+namespace Sandbox.Payment.Shared;
 
 public record CreatePaymentIntent(Guid OrderId, Guid UserId, decimal Amount);
 public record PaymentIntentCreated(Guid OrderId);

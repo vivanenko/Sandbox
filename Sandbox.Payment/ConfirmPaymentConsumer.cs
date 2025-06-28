@@ -1,6 +1,7 @@
 using MassTransit;
+using Sandbox.Payment.Shared;
 
-namespace Web.Services.Payment;
+namespace Sandbox.Payment;
 
 public class ConfirmPaymentConsumer : IConsumer<ConfirmPayment>
 {

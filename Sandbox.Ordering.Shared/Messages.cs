@@ -1,4 +1,4 @@
-namespace Web.Services.Ordering;
+namespace Sandbox.Ordering.Shared;
 
 public record PlaceOrder(Guid OrderId);
 public record OrderPlaced(Guid OrderId);

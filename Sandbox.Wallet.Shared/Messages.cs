@@ -1,4 +1,4 @@
-namespace Web.Services.Wallet;
+namespace Sandbox.Wallet.Shared;
 
 public record HoldCoins(Guid OrderId, Guid UserId, int Points);
 public record CoinsHeld(Guid OrderId);

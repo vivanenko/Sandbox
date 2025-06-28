@@ -1,4 +1,4 @@
-namespace Web.Checkout.OrderPayment;
+namespace Sandbox.Ordering.Sagas.OrderPayment;
 
 public record StartOrderPaymentSaga(Guid OrderId, Guid UserId);
 public record OrderPaymentSagaFailed(Guid OrderId, string Reason);

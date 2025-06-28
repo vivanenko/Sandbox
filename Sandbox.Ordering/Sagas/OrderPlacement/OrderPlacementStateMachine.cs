@@ -1,11 +1,10 @@
 using MassTransit;
-using Web.Common;
-using Web.Services.Inventory;
-using Web.Services.Ordering;
-using Web.Services.Payment;
-using Web.Services.Wallet;
+using Sandbox.Inventory.Shared;
+using Sandbox.Ordering.Shared;
+using Sandbox.Payment.Shared;
+using Sandbox.Wallet.Shared;
 
-namespace Web.Checkout.OrderPlacement;
+namespace Sandbox.Ordering.Sagas.OrderPlacement;
 
 public class OrderPlacementState : SagaStateMachineInstance
 {
@@ -17,7 +16,7 @@ public class OrderPlacementState : SagaStateMachineInstance
 
     public int CoinsAmount { get; set; }
     public decimal Amount { get; set; }
-    public List<OrderItemDto> Items { get; set; } = [];
+    public List<ItemDto> Items { get; set; } = [];
 
     public DateTime CreatedAt { get; set; }
     

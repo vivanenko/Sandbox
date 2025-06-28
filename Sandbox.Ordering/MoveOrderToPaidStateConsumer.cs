@@ -1,6 +1,7 @@
 using MassTransit;
+using Sandbox.Ordering.Shared;
 
-namespace Web.Services.Ordering;
+namespace Sandbox.Ordering;
 
 public class MoveOrderToPaidStateConsumer : IConsumer<MoveOrderToPaidState>
 {

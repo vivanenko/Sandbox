@@ -1,6 +1,7 @@
 using MassTransit;
+using Sandbox.Wallet.Shared;
 
-namespace Web.Services.Wallet;
+namespace Sandbox.Wallet;
 
 public class RefundCoinsConsumer : IConsumer<RefundCoins>
 {

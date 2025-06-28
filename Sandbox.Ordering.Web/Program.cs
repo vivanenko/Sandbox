@@ -1,41 +1,90 @@
+using MassTransit;
+using Sandbox.Ordering;
+using Sandbox.Ordering.Sagas.OrderPayment;
+using Sandbox.Ordering.Sagas.OrderPlacement;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
+builder.Services.AddMassTransit(cfg =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
+    cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
+        .InMemoryRepository();
+    cfg.AddSagaStateMachine<OrderPaymentStateMachine, OrderPaymentState>()
+        .InMemoryRepository();
+    
+    cfg.AddRequestClient<StartOrderPlacementSaga>();
+    cfg.AddRequestClient<StartOrderPaymentSaga>();
+    
+    cfg.AddConsumer<PlaceOrderConsumer>().Endpoint(c => c.Name = "place-order");
+    cfg.AddConsumer<MoveOrderToPaidStateConsumer>().Endpoint(c => c.Name = "move-order-to-paid-state");
+    
+    cfg.UsingRabbitMq((context, config) =>
     {
-        var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-            .ToArray();
-        return forecast;
-    })
-    .WithName("GetWeatherForecast");
+        config.Host("localhost", 5673, "/", _ => { });
+        config.ConfigureEndpoints(context);
+        // config.Message<InventoryReserved>(t => t.SetEntityName("inventory:inventory-reserved"));
+        // config.Message<InventoryReservationFailed>(t => t.SetEntityName("inventory:inventory-reservation-failed"));
+    });
+});
+
+
+app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacementSaga> requestClient,
+    CancellationToken cancellationToken) =>
+{
+    var command = new StartOrderPlacementSaga(Guid.CreateVersion7(), Guid.CreateVersion7(), 10, 5, []);
+    var response = await requestClient
+        .GetResponse<OrderPlacementSagaCompleted, OrderPlacementSagaFailed>(command, cancellationToken);
+
+    if (response.Is(out Response<OrderPlacementSagaCompleted>? completed))
+    {
+        if (completed.Message.IsPaymentConfirmationRequired)
+        {
+            Console.WriteLine("Checkout: Confirmation required");
+            return Results.Ok(completed.Message.OrderId);
+        }
+
+        Console.WriteLine("Checkout completed");
+        return Results.Ok("Checkout completed");
+    }
+
+    if (response.Is(out Response<OrderPlacementSagaFailed>? failed))
+    {
+        Console.WriteLine("Checkout failed");
+        return Results.BadRequest(failed.Message.Reason);
+    }
+    
+    throw new Exception("Unknown response");
+});
+
+app.MapGet("checkout/{orderId}/confirm", async (Guid orderId, IRequestClient<StartOrderPaymentSaga> requestClient,
+    CancellationToken cancellationToken) =>
+{
+    var command = new StartOrderPaymentSaga(orderId, Guid.CreateVersion7());
+    var response = await requestClient
+        .GetResponse<OrderPaymentSagaCompleted, OrderPaymentSagaFailed>(command, cancellationToken);
+
+    if (response.Is(out Response<OrderPaymentSagaCompleted>? succeeded))
+    {
+        Console.WriteLine("Checkout completed");
+        return Results.Ok("Checkout completed");
+    }
+
+    if (response.Is(out Response<OrderPaymentSagaFailed>? failed))
+    {
+        Console.WriteLine("Checkout failed");
+        return Results.BadRequest(failed.Message.Reason);
+    }
+    
+    throw new Exception("Unknown response");
+});
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

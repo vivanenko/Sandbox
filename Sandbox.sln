@@ -1,7 +1,5 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web", "Web\Web.csproj", "{BD75050D-43EC-4184-A7EE-87D21FC8F8EC}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Inventory", "Inventory", "{6B20A7F5-010F-4F9C-B3A4-A824F2947144}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Wallet", "Wallet", "{78363141-CD41-4145-BA8D-AA72BDAD526B}"
@@ -48,10 +46,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{BD75050D-43EC-4184-A7EE-87D21FC8F8EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BD75050D-43EC-4184-A7EE-87D21FC8F8EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BD75050D-43EC-4184-A7EE-87D21FC8F8EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BD75050D-43EC-4184-A7EE-87D21FC8F8EC}.Release|Any CPU.Build.0 = Release|Any CPU
 		{CA974690-BE83-422C-89C6-EE7FB3068B5E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{CA974690-BE83-422C-89C6-EE7FB3068B5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CA974690-BE83-422C-89C6-EE7FB3068B5E}.Release|Any CPU.ActiveCfg = Release|Any CPU

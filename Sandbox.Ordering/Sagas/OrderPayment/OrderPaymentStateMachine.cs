@@ -1,9 +1,9 @@
 using MassTransit;
-using Web.Services.Ordering;
-using Web.Services.Payment;
-using Web.Services.Wallet;
+using Sandbox.Ordering.Shared;
+using Sandbox.Payment.Shared;
+using Sandbox.Wallet.Shared;
 
-namespace Web.Checkout.OrderPayment;
+namespace Sandbox.Ordering.Sagas.OrderPayment;
 
 public class OrderPaymentState : SagaStateMachineInstance
 {

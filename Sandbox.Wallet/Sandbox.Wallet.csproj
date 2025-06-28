@@ -10,4 +10,8 @@
       <ProjectReference Include="..\Sandbox.Wallet.Shared\Sandbox.Wallet.Shared.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.0" />
+    </ItemGroup>
+
 </Project>
