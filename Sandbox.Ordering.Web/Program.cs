@@ -1,9 +1,13 @@
 using MassTransit;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Sandbox.Inventory.Shared;
 using Sandbox.Ordering;
 using Sandbox.Ordering.Sagas.OrderPayment;
 using Sandbox.Ordering.Sagas.OrderPlacement;
+using Sandbox.Ordering.Shared;
+using Sandbox.Payment.Shared;
+using Sandbox.Wallet.Shared;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,13 +38,49 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddRequestClient<StartOrderPlacementSaga>();
     cfg.AddRequestClient<StartOrderPaymentSaga>();
     
-    cfg.AddConsumer<PlaceOrderConsumer>().Endpoint(c => c.Name = "ordering:place-order");
-    cfg.AddConsumer<MoveOrderToPaidStateConsumer>().Endpoint(c => c.Name = "ordering:move-order-to-paid-state");
+    cfg.AddConsumer<PlaceOrderConsumer>().Endpoint(c =>
+    {
+        c.Name = "ordering:place-order";
+        c.ConfigureConsumeTopology = false;
+    });
+    cfg.AddConsumer<MoveOrderToPaidStateConsumer>().Endpoint(c =>
+    {
+        c.Name = "ordering:move-order-to-paid-state";
+        c.ConfigureConsumeTopology = false;
+    });
     
     cfg.UsingRabbitMq((context, config) =>
     {
         config.Host("localhost", 5673, "/", _ => { });
         config.ConfigureEndpoints(context);
+        
+        config.Message<InventoryReserved>(x => x.SetEntityName("inventory:inventory-reserved"));
+        config.Message<InventoryReservationFailed>(x => x.SetEntityName("inventory:inventory-reservation-failed"));
+        config.Message<InventoryReleased>(x => x.SetEntityName("inventory:inventory-released"));
+        config.Message<InventoryReleaseFailed>(x => x.SetEntityName("inventory:inventory-release-failed"));
+        
+        config.Message<PaymentIntentCreated>(x => x.SetEntityName("payment:payment-intent-created"));
+        config.Message<PaymentIntentFailed>(x => x.SetEntityName("payment:payment-intent-failed"));
+        config.Message<PaymentIntentCancelled>(x => x.SetEntityName("payment:payment-intent-cancelled"));
+        config.Message<PaymentIntentCancellationFailed>(x => x.SetEntityName("payment:payment-intent-cancellation-failed"));
+        config.Message<PaymentConfirmed>(x => x.SetEntityName("payment:payment-confirmed"));
+        config.Message<PaymentFailed>(x => x.SetEntityName("payment:payment-failed"));
+        config.Message<PaymentRefunded>(x => x.SetEntityName("payment:payment-refunded"));
+        config.Message<PaymentRefundFailed>(x => x.SetEntityName("payment:payment-refund-failed"));
+        
+        config.Message<CoinsHeld>(x => x.SetEntityName("wallet:coins-held"));
+        config.Message<CoinsHoldFailed>(x => x.SetEntityName("wallet:coins-hold-failed"));
+        config.Message<HoldCancelled>(x => x.SetEntityName("wallet:hold-cancelled"));
+        config.Message<HoldCancellationFailed>(x => x.SetEntityName("wallet:hold-cancellation-failed"));
+        config.Message<HoldCommitted>(x => x.SetEntityName("wallet:hold-committed"));
+        config.Message<HoldCommitFailed>(x => x.SetEntityName("wallet:hold-commit-failed"));
+        config.Message<CoinsRefunded>(x => x.SetEntityName("wallet:coins-refunded"));
+        config.Message<CoinsRefundFailed>(x => x.SetEntityName("wallet:coins-refund-failed"));
+        
+        config.Message<OrderPlaced>(x => x.SetEntityName("ordering:order-placed"));
+        config.Message<OrderPlacementFailed>(x => x.SetEntityName("ordering:order-placement-failed"));
+        config.Message<OrderPaid>(x => x.SetEntityName("ordering:order-paid"));
+        config.Message<OrderPaymentFailed>(x => x.SetEntityName("ordering:order-payment-failed"));
     });
 });
 
