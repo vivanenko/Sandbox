@@ -1,9 +1,24 @@
 using MassTransit;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Sandbox.Ordering;
 using Sandbox.Ordering.Sagas.OrderPayment;
 using Sandbox.Ordering.Sagas.OrderPlacement;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Configuration(context.Configuration));
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("Ordering"))
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddHttpClientInstrumentation()
+            .AddAspNetCoreInstrumentation()
+            .AddSource(MassTransit.Logging.DiagnosticHeaders.DefaultListenerName);
+        tracing.AddOtlpExporter();
+    });
 
 builder.Services.AddOpenApi();
 
@@ -33,6 +48,8 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+app.UseSerilogRequestLogging();
 
 app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacementSaga> requestClient,
     CancellationToken cancellationToken) =>
