@@ -7,13 +7,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 
-var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
@@ -36,6 +29,12 @@ builder.Services.AddMassTransit(cfg =>
     });
 });
 
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
 app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacementSaga> requestClient,
     CancellationToken cancellationToken) =>

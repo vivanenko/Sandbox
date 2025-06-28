@@ -5,13 +5,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 
-var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.AddConsumer<CreatePaymentIntentConsumer>().Endpoint(c => c.Name = "create-payment-intent");
@@ -25,5 +18,12 @@ builder.Services.AddMassTransit(cfg =>
         config.ConfigureEndpoints(context);
     });
 });
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
 app.Run();
