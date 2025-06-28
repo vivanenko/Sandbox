@@ -99,7 +99,7 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
         
         During(WaitingForPaymentConfirmation,
             When(PaymentConfirmed)
-                .Send(new Uri("queue:move-order-to-paid-state"), context => new MoveOrderToPaidState(context.Saga.OrderId))
+                .Send(new Uri("queue:ordering:move-order-to-paid-state"), context => new MoveOrderToPaidState(context.Saga.OrderId))
                 .TransitionTo(WaitingForOrderPayment),
             
             When(PaymentFailed)

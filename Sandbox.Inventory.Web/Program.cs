@@ -22,8 +22,8 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddMassTransit(cfg =>
 {
-    cfg.AddConsumer<ReserveInventoryConsumer>().Endpoint(c => c.Name = "reserve-inventory");
-    cfg.AddConsumer<ReleaseInventoryConsumer>().Endpoint(c => c.Name = "release-inventory");
+    cfg.AddConsumer<ReserveInventoryConsumer>().Endpoint(c => c.Name = "inventory:reserve-inventory");
+    cfg.AddConsumer<ReleaseInventoryConsumer>().Endpoint(c => c.Name = "inventory:release-inventory");
 
     cfg.UsingRabbitMq((context, config) =>
     {

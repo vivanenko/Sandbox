@@ -25,15 +25,17 @@ builder.Services.AddOpenApi();
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
+        .Endpoint(e => e.Name = "ordering:order-placement-saga-state")
         .InMemoryRepository();
     cfg.AddSagaStateMachine<OrderPaymentStateMachine, OrderPaymentState>()
+        .Endpoint(e => e.Name = "ordering:order-payment-saga-state")
         .InMemoryRepository();
     
     cfg.AddRequestClient<StartOrderPlacementSaga>();
     cfg.AddRequestClient<StartOrderPaymentSaga>();
     
-    cfg.AddConsumer<PlaceOrderConsumer>().Endpoint(c => c.Name = "place-order");
-    cfg.AddConsumer<MoveOrderToPaidStateConsumer>().Endpoint(c => c.Name = "move-order-to-paid-state");
+    cfg.AddConsumer<PlaceOrderConsumer>().Endpoint(c => c.Name = "ordering:place-order");
+    cfg.AddConsumer<MoveOrderToPaidStateConsumer>().Endpoint(c => c.Name = "ordering:move-order-to-paid-state");
     
     cfg.UsingRabbitMq((context, config) =>
     {
