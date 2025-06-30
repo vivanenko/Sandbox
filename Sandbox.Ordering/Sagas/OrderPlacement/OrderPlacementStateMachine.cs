@@ -1,4 +1,7 @@
 using MassTransit;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.IdGenerators;
+using MongoDB.Bson.Serialization.Serializers;
 using Sandbox.Inventory.Shared;
 using Sandbox.Ordering.Shared;
 using Sandbox.Payment.Shared;
@@ -6,9 +9,28 @@ using Sandbox.Wallet.Shared;
 
 namespace Sandbox.Ordering.Sagas.OrderPlacement;
 
-public class OrderPlacementState : SagaStateMachineInstance
+public class OrderPlacementStateClassMap : BsonClassMap<OrderPlacementState>
+{
+    public OrderPlacementStateClassMap()
+    {
+        AutoMap();
+        MapIdMember(c => c.CorrelationId)
+            .SetIdGenerator(GuidGenerator.Instance)
+            .SetSerializer(new GuidSerializer(MongoDB.Bson.BsonType.String));
+        // MapMember(c => c.Version).SetElementName("version");
+        MapMember(c => c.OrderId)
+            .SetSerializer(new GuidSerializer(MongoDB.Bson.BsonType.String));
+        MapMember(c => c.UserId)
+            .SetSerializer(new GuidSerializer(MongoDB.Bson.BsonType.String));
+        MapMember(c => c.RequestId)
+            .SetSerializer(new GuidSerializer(MongoDB.Bson.BsonType.String));
+    }
+}
+
+public class OrderPlacementState : SagaStateMachineInstance, ISagaVersion
 {
     public Guid CorrelationId { get; set; }
+    public int Version { get; set; }
     public string CurrentState { get; set; }
 
     public Guid OrderId { get; set; }
@@ -16,7 +38,7 @@ public class OrderPlacementState : SagaStateMachineInstance
 
     public int CoinsAmount { get; set; }
     public decimal Amount { get; set; }
-    public List<ItemDto> Items { get; set; } = [];
+    public ItemDto[] Items { get; set; } = [];
 
     public DateTime CreatedAt { get; set; }
     

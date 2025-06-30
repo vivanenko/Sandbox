@@ -1,4 +1,5 @@
 using MassTransit;
+using MongoDB.Bson.Serialization;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Sandbox.Inventory.Shared;
@@ -26,14 +27,26 @@ builder.Services.AddOpenTelemetry()
 
 builder.Services.AddOpenApi();
 
+builder.Services.AddSingleton<BsonClassMap<OrderPlacementState>, OrderPlacementStateClassMap>();
+builder.Services.AddSingleton<BsonClassMap<OrderPaymentState>, OrderPaymentStateClassMap>();
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
-        .Endpoint(e => e.Name = "ordering:order-placement-saga-state")
-        .InMemoryRepository();
+        .MongoDbRepository(r =>
+        {
+            r.Connection = "mongodb://localhost:27017";
+            r.DatabaseName = "orderPlacementSaga";
+            r.CollectionName = "orderPlacementSagaStates";
+        })
+        .Endpoint(e => e.Name = "ordering:order-placement-saga-state");
     cfg.AddSagaStateMachine<OrderPaymentStateMachine, OrderPaymentState>()
-        .Endpoint(e => e.Name = "ordering:order-payment-saga-state")
-        .InMemoryRepository();
+        .MongoDbRepository(r =>
+        {
+            r.Connection = "mongodb://localhost:27017";
+            r.DatabaseName = "orderPaymentSaga";
+            r.CollectionName = "orderPaymentSagaStates";
+        })
+        .Endpoint(e => e.Name = "ordering:order-payment-saga-state");
     
     cfg.AddRequestClient<StartOrderPlacementSaga>();
     cfg.AddRequestClient<StartOrderPaymentSaga>();
