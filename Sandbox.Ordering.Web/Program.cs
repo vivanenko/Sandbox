@@ -39,7 +39,7 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
         .MongoDbRepository(r =>
         {
-            r.Connection = "mongodb://localhost:27017";
+            r.Connection = builder.Configuration.GetConnectionString("Saga");
             r.DatabaseName = "orderPlacementSaga";
             r.CollectionName = "orderPlacementSagaStates";
         })
@@ -47,7 +47,7 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddSagaStateMachine<OrderPaymentStateMachine, OrderPaymentState>()
         .MongoDbRepository(r =>
         {
-            r.Connection = "mongodb://localhost:27017";
+            r.Connection = builder.Configuration.GetConnectionString("Saga");
             r.DatabaseName = "orderPaymentSaga";
             r.CollectionName = "orderPaymentSagaStates";
         })
@@ -55,7 +55,7 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddSagaStateMachine<OrderConfirmationStateMachine, OrderConfirmationState>()
         .MongoDbRepository(r =>
         {
-            r.Connection = "mongodb://localhost:27017";
+            r.Connection = builder.Configuration.GetConnectionString("Saga");
             r.DatabaseName = "orderConfirmationSaga";
             r.CollectionName = "orderConfirmationSagaStates";
         })
@@ -83,7 +83,8 @@ builder.Services.AddMassTransit(cfg =>
     
     cfg.UsingRabbitMq((context, config) =>
     {
-        config.Host("localhost", 5673, "/", _ => { });
+        var rabbitMq = builder.Configuration.GetSection("RabbitMQ");
+        config.Host(rabbitMq["Host"], ushort.Parse(rabbitMq["Port"]), rabbitMq["VirtualHost"], _ => { });
         config.ConfigureEndpoints(context);
         
         config.Message<StartOrderPlacementSaga>(x => x.SetEntityName("ordering:start-order-placement-saga"));

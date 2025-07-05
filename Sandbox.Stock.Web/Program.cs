@@ -56,7 +56,8 @@ builder.Services.AddMassTransit(cfg =>
 
     cfg.UsingRabbitMq((context, config) =>
     {
-        config.Host("localhost", 5673, "/", _ => { });
+        var rabbitMq = builder.Configuration.GetSection("RabbitMQ");
+        config.Host(rabbitMq["Host"], ushort.Parse(rabbitMq["Port"]), rabbitMq["VirtualHost"], _ => { });
         config.ConfigureEndpoints(context);
         
         config.Message<StockReserved>(x => x.SetEntityName("stock:stock-reserved"));
