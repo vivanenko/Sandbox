@@ -43,6 +43,16 @@ builder.Services.AddMassTransit(cfg =>
         c.Name = "stock:reduce-stock-reservation";
         c.ConfigureConsumeTopology = false;
     });
+    cfg.AddConsumer<ConfirmStockReservationConsumer>().Endpoint(c =>
+    {
+        c.Name = "stock:confirm-stock-reservation";
+        c.ConfigureConsumeTopology = false;
+    });
+    cfg.AddConsumer<RevertStockReservationConsumer>().Endpoint(c =>
+    {
+        c.Name = "stock:revert-stock-reservation";
+        c.ConfigureConsumeTopology = false;
+    });
 
     cfg.UsingRabbitMq((context, config) =>
     {
@@ -60,6 +70,12 @@ builder.Services.AddMassTransit(cfg =>
 
         config.Message<StockReservationReduced>(x => x.SetEntityName("stock:stock-reservation-reduced"));
         config.Message<StockReservationReductionFailed>(x => x.SetEntityName("stock:stock-reservation-reduction-failed"));
+        
+        config.Message<StockReservationConfirmed>(x => x.SetEntityName("stock:stock-reservation-confirmed"));
+        config.Message<StockReservationConfirmationFailed>(x => x.SetEntityName("stock:stock-reservation-confirmation-failed"));
+        
+        config.Message<StockReservationReverted>(x => x.SetEntityName("stock:stock-reservation-reverted"));
+        config.Message<StockReservationReversionFailed>(x => x.SetEntityName("stock:stock-reservation-reversion-failed"));
     });
 });
 

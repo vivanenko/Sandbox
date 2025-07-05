@@ -15,3 +15,11 @@ public record StockReservationExtensionFailed(Guid OrderId, string Reason);
 public record ReduceStockReservation(Guid OrderId);
 public record StockReservationReduced(Guid OrderId);
 public record StockReservationReductionFailed(Guid OrderId, string Reason);
+
+public record ConfirmStockReservation(Guid OrderId);
+public record StockReservationConfirmed(Guid OrderId);
+public record StockReservationConfirmationFailed(Guid OrderId, string Reason);
+
+public record RevertStockReservation(Guid OrderId);
+public record StockReservationReverted(Guid OrderId);
+public record StockReservationReversionFailed(Guid OrderId, string Reason);

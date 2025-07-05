@@ -4,6 +4,8 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Sandbox.Stock.Shared;
 using Sandbox.Ordering;
+using Sandbox.Ordering.Sagas.OrderConfirmation;
+using Sandbox.Ordering.Sagas.OrderConfirmation.MongoDb;
 using Sandbox.Ordering.Sagas.OrderPayment;
 using Sandbox.Ordering.Sagas.OrderPayment.MongoDb;
 using Sandbox.Ordering.Sagas.OrderPlacement;
@@ -31,6 +33,7 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton<BsonClassMap<OrderPlacementState>, OrderPlacementStateClassMap>();
 builder.Services.AddSingleton<BsonClassMap<OrderPaymentState>, OrderPaymentStateClassMap>();
+builder.Services.AddSingleton<BsonClassMap<OrderConfirmationState>, OrderConfirmationStateClassMap>();
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
@@ -49,9 +52,18 @@ builder.Services.AddMassTransit(cfg =>
             r.CollectionName = "orderPaymentSagaStates";
         })
         .Endpoint(e => e.Name = "ordering:order-payment-saga-state");
+    cfg.AddSagaStateMachine<OrderConfirmationStateMachine, OrderConfirmationState>()
+        .MongoDbRepository(r =>
+        {
+            r.Connection = "mongodb://localhost:27017";
+            r.DatabaseName = "orderConfirmationSaga";
+            r.CollectionName = "orderConfirmationSagaStates";
+        })
+        .Endpoint(e => e.Name = "ordering:order-confirmation-saga-state");
     
     cfg.AddRequestClient<StartOrderPlacementSaga>();
     cfg.AddRequestClient<StartOrderPaymentSaga>();
+    cfg.AddRequestClient<StartOrderConfirmationSaga>();
     
     cfg.AddConsumer<PlaceOrderConsumer>().Endpoint(c =>
     {
@@ -61,6 +73,11 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddConsumer<MoveOrderToPaidStateConsumer>().Endpoint(c =>
     {
         c.Name = "ordering:move-order-to-paid-state";
+        c.ConfigureConsumeTopology = false;
+    });
+    cfg.AddConsumer<ConfirmOrderConsumer>().Endpoint(c =>
+    {
+        c.Name = "ordering:confirm-order";
         c.ConfigureConsumeTopology = false;
     });
     
@@ -77,6 +94,10 @@ builder.Services.AddMassTransit(cfg =>
         config.Message<OrderPaymentSagaCompleted>(x => x.SetEntityName("ordering:order-payment-saga-completed"));
         config.Message<OrderPaymentSagaFailed>(x => x.SetEntityName("ordering:order-payment-saga-failed"));
         
+        config.Message<StartOrderConfirmationSaga>(x => x.SetEntityName("ordering:start-order-confirmation-saga"));
+        config.Message<OrderConfirmationSagaCompleted>(x => x.SetEntityName("ordering:order-confirmation-saga-completed"));
+        config.Message<OrderConfirmationSagaFailed>(x => x.SetEntityName("ordering:order-confirmation-saga-failed"));
+        
         config.Message<StockReserved>(x => x.SetEntityName("stock:stock-reserved"));
         config.Message<StockReservationFailed>(x => x.SetEntityName("stock:stock-reservation-failed"));
         config.Message<StockReleased>(x => x.SetEntityName("stock:stock-released"));
@@ -85,6 +106,10 @@ builder.Services.AddMassTransit(cfg =>
         config.Message<StockReservationExtensionFailed>(x => x.SetEntityName("stock:stock-reservation-extension-failed"));
         config.Message<StockReservationReduced>(x => x.SetEntityName("stock:stock-reservation-reduced"));
         config.Message<StockReservationReductionFailed>(x => x.SetEntityName("stock:stock-reservation-reduction-failed"));
+        config.Message<StockReservationConfirmed>(x => x.SetEntityName("stock:stock-reservation-confirmed"));
+        config.Message<StockReservationConfirmationFailed>(x => x.SetEntityName("stock:stock-reservation-confirmation-failed"));
+        config.Message<StockReservationReverted>(x => x.SetEntityName("stock:stock-reservation-reverted"));
+        config.Message<StockReservationReversionFailed>(x => x.SetEntityName("stock:stock-reservation-reversion-failed"));
         
         config.Message<PaymentIntentCreated>(x => x.SetEntityName("payment:payment-intent-created"));
         config.Message<PaymentIntentFailed>(x => x.SetEntityName("payment:payment-intent-failed"));
@@ -164,6 +189,28 @@ app.MapGet("checkout/{orderId}/confirm", async (Guid orderId, IRequestClient<Sta
     if (response.Is(out Response<OrderPaymentSagaFailed>? failed))
     {
         Console.WriteLine("Checkout failed");
+        return Results.BadRequest(failed.Message.Reason);
+    }
+    
+    throw new Exception("Unknown response");
+});
+
+app.MapGet("orders/{orderId}/confirm", async (Guid orderId, IRequestClient<StartOrderConfirmationSaga> requestClient,
+    CancellationToken cancellationToken) =>
+{
+    var command = new StartOrderConfirmationSaga(orderId);
+    var response = await requestClient
+        .GetResponse<OrderConfirmationSagaCompleted, OrderConfirmationSagaFailed>(command, cancellationToken);
+
+    if (response.Is(out Response<OrderConfirmationSagaCompleted>? succeeded))
+    {
+        Console.WriteLine("Order confirmed");
+        return Results.Ok("Order confirmed");
+    }
+
+    if (response.Is(out Response<OrderConfirmationSagaFailed>? failed))
+    {
+        Console.WriteLine("Order confirmation failed");
         return Results.BadRequest(failed.Message.Reason);
     }
     
