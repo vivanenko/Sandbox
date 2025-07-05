@@ -81,6 +81,10 @@ builder.Services.AddMassTransit(cfg =>
         config.Message<InventoryReservationFailed>(x => x.SetEntityName("inventory:inventory-reservation-failed"));
         config.Message<InventoryReleased>(x => x.SetEntityName("inventory:inventory-released"));
         config.Message<InventoryReleaseFailed>(x => x.SetEntityName("inventory:inventory-release-failed"));
+        config.Message<InventoryReservationExtended>(x => x.SetEntityName("inventory:inventory-reservation-extended"));
+        config.Message<InventoryReservationExtensionFailed>(x => x.SetEntityName("inventory:inventory-reservation-extension-failed"));
+        config.Message<InventoryReservationReduced>(x => x.SetEntityName("inventory:inventory-reservation-reduced"));
+        config.Message<InventoryReservationReductionFailed>(x => x.SetEntityName("inventory:inventory-reservation-reduction-failed"));
         
         config.Message<PaymentIntentCreated>(x => x.SetEntityName("payment:payment-intent-created"));
         config.Message<PaymentIntentFailed>(x => x.SetEntityName("payment:payment-intent-failed"));

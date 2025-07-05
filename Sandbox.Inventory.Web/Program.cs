@@ -34,6 +34,16 @@ builder.Services.AddMassTransit(cfg =>
         c.Name = "inventory:release-inventory";
         c.ConfigureConsumeTopology = false;
     });
+    cfg.AddConsumer<ExtendInventoryReservationConsumer>().Endpoint(c =>
+    {
+        c.Name = "inventory:extend-inventory-reservation";
+        c.ConfigureConsumeTopology = false;
+    });
+    cfg.AddConsumer<ReduceInventoryReservationConsumer>().Endpoint(c =>
+    {
+        c.Name = "inventory:reduce-inventory-reservation";
+        c.ConfigureConsumeTopology = false;
+    });
 
     cfg.UsingRabbitMq((context, config) =>
     {
@@ -42,8 +52,15 @@ builder.Services.AddMassTransit(cfg =>
         
         config.Message<InventoryReserved>(x => x.SetEntityName("inventory:inventory-reserved"));
         config.Message<InventoryReservationFailed>(x => x.SetEntityName("inventory:inventory-reservation-failed"));
+        
         config.Message<InventoryReleased>(x => x.SetEntityName("inventory:inventory-released"));
         config.Message<InventoryReleaseFailed>(x => x.SetEntityName("inventory:inventory-release-failed"));
+        
+        config.Message<InventoryReservationExtended>(x => x.SetEntityName("inventory:inventory-reservation-extended"));
+        config.Message<InventoryReservationExtensionFailed>(x => x.SetEntityName("inventory:inventory-reservation-extension-failed"));
+
+        config.Message<InventoryReservationReduced>(x => x.SetEntityName("inventory:inventory-reservation-reduced"));
+        config.Message<InventoryReservationReductionFailed>(x => x.SetEntityName("inventory:inventory-reservation-reduction-failed"));
     });
 });
 
