@@ -134,6 +134,8 @@ builder.Services.AddMassTransit(cfg =>
         config.Message<OrderPlacementFailed>(x => x.SetEntityName("ordering:order-placement-failed"));
         config.Message<OrderPaid>(x => x.SetEntityName("ordering:order-paid"));
         config.Message<OrderPaymentFailed>(x => x.SetEntityName("ordering:order-payment-failed"));
+        config.Message<OrderConfirmed>(x => x.SetEntityName("ordering:order-confirmed"));
+        config.Message<OrderConfirmationFailed>(x => x.SetEntityName("ordering:order-confirmation-failed"));
     });
 });
 
