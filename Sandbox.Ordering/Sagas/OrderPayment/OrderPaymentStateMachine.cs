@@ -21,13 +21,13 @@ public class OrderPaymentState : SagaStateMachineInstance, ISagaVersion
 
 public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentState>
 {
-    public State WaitingForInventoryReservationExtension { get; private set; }
-    public State WaitingForHoldCommit { get; private set; }
-    public State WaitingForPaymentConfirmation { get; private set; }
-    public State WaitingForOrderPayment { get; private set; }
-    public State WaitingForPaymentRefund { get; private set; }
-    public State WaitingForCoinsRefund { get; private set; }
-    public State WaitingForInventoryReservationReduction { get; private set; }
+    public State AwaitingInventoryReservationExtension { get; private set; }
+    public State AwaitingCoinsHoldCommit { get; private set; }
+    public State AwaitingPaymentConfirmation { get; private set; }
+    public State AwaitingOrderPayment { get; private set; }
+    public State AwaitingPaymentRefund { get; private set; }
+    public State AwaitingCoinsRefund { get; private set; }
+    public State AwaitingInventoryReservationReduction { get; private set; }
     
     public Event<StartOrderPaymentSaga> StartOrderPaymentSaga { get; private set; }
     public Event<OrderPaymentSagaFailed> OrderPaymentSagaFailed { get; private set; }
@@ -91,13 +91,13 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                     context.Saga.ResponseAddress = context.ResponseAddress;
                 })
                 .Send(new Uri("queue:inventory:extend-inventory-reservation"), context => new ExtendInventoryReservation(context.Saga.OrderId))
-                .TransitionTo(WaitingForInventoryReservationExtension)
+                .TransitionTo(AwaitingInventoryReservationExtension)
         );
         
-        During(WaitingForInventoryReservationExtension,
+        During(AwaitingInventoryReservationExtension,
             When(InventoryReservationExtended)
                 .Send(new Uri("queue:wallet:commit-hold"), context => new CommitHold(context.Saga.OrderId, context.Saga.UserId))
-                .TransitionTo(WaitingForHoldCommit),
+                .TransitionTo(AwaitingCoinsHoldCommit),
             
             When(InventoryReservationExtensionFailed)
                 .ThenAsync(async context =>
@@ -111,17 +111,17 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                 .Finalize()
         );
         
-        During(WaitingForHoldCommit,
+        During(AwaitingCoinsHoldCommit,
             When(HoldCommitted)
                 .Send(new Uri("queue:payment:confirm-payment"), context => new ConfirmPayment(context.Saga.OrderId))
-                .TransitionTo(WaitingForPaymentConfirmation),
+                .TransitionTo(AwaitingPaymentConfirmation),
             
             When(HoldCommitFailed)
                 .Send(new Uri("queue:inventory:reduce-inventory-reservation"), context => new ReduceInventoryReservation(context.Saga.OrderId))
-                .TransitionTo(WaitingForInventoryReservationReduction)
+                .TransitionTo(AwaitingInventoryReservationReduction)
         );
         
-        During(WaitingForInventoryReservationReduction,
+        During(AwaitingInventoryReservationReduction,
             When(InventoryReservationReduced)
                 .ThenAsync(async context =>
                 {
@@ -145,17 +145,17 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                 .Finalize()
         );
         
-        During(WaitingForPaymentConfirmation,
+        During(AwaitingPaymentConfirmation,
             When(PaymentConfirmed)
                 .Send(new Uri("queue:ordering:move-order-to-paid-state"), context => new MoveOrderToPaidState(context.Saga.OrderId))
-                .TransitionTo(WaitingForOrderPayment),
+                .TransitionTo(AwaitingOrderPayment),
             
             When(PaymentFailed)
                 .Send(new Uri("queue:wallet:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
-                .TransitionTo(WaitingForCoinsRefund)
+                .TransitionTo(AwaitingCoinsRefund)
         );
         
-        During(WaitingForOrderPayment,
+        During(AwaitingOrderPayment,
             When(OrderPaid)
                 .ThenAsync(async context =>
                 {
@@ -169,20 +169,20 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
             
             When(OrderPaymentFailed)
                 .Send(new Uri("queue:payment:refund-payment"), context => new RefundPayment(context.Saga.OrderId))
-                .TransitionTo(WaitingForPaymentRefund)
+                .TransitionTo(AwaitingPaymentRefund)
         );
         
-        During(WaitingForPaymentRefund,
+        During(AwaitingPaymentRefund,
             When(PaymentRefunded)
                 .Send(new Uri("queue:wallet:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
-                .TransitionTo(WaitingForCoinsRefund),
+                .TransitionTo(AwaitingCoinsRefund),
             
             When(PaymentRefundFailed)
                 .Send(new Uri("queue:wallet:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
-                .TransitionTo(WaitingForCoinsRefund)
+                .TransitionTo(AwaitingCoinsRefund)
         );
         
-        During(WaitingForCoinsRefund,
+        During(AwaitingCoinsRefund,
             When(CoinsRefunded)
                 .ThenAsync(async context =>
                 {

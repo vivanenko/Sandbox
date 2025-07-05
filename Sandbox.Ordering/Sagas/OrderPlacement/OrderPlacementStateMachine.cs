@@ -27,13 +27,13 @@ public class OrderPlacementState : SagaStateMachineInstance, ISagaVersion
 
 public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacementState>
 {
-    public State WaitingForInventory { get; private set; }
-    public State WaitingForCoinsHold { get; private set; }
-    public State WaitingForPaymentIntent { get; private set; }
-    public State WaitingForOrderPlacement { get; private set; }
-    public State WaitingForReservationCancellation { get; private set; }
-    public State WaitingForHoldCancellation { get; private set; }
-    public State WaitingForPaymentCancellation { get; private set; }
+    public State AwaitingInventoryReservation { get; private set; }
+    public State AwaitingCoinsHold { get; private set; }
+    public State AwaitingPaymentIntent { get; private set; }
+    public State AwaitingOrderPlacement { get; private set; }
+    public State AwaitingReservationCancellation { get; private set; }
+    public State AwaitingCoinsHoldCancellation { get; private set; }
+    public State AwaitingPaymentIntentCancellation { get; private set; }
 
     public Event<StartOrderPlacementSaga> StartOrderPlacement { get; private set; }
     public Event<OrderPlacementSagaCompleted> OrderPlacementSagaCompleted { get; private set; }
@@ -101,21 +101,21 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     context.Saga.ResponseAddress = context.ResponseAddress;
                 })
                 .Send(new Uri("queue:inventory:reserve-inventory"), context => new ReserveInventory(context.Saga.OrderId, context.Saga.Items))
-                .TransitionTo(WaitingForInventory)
+                .TransitionTo(AwaitingInventoryReservation)
         );
 
-        During(WaitingForInventory,
+        During(AwaitingInventoryReservation,
             When(InventoryReserved)
                 .IfElse(context => context.Saga.CoinsAmount > 0,
                     binder => binder.Send(new Uri("queue:wallet:hold-coins"), context => new HoldCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
-                                    .TransitionTo(WaitingForCoinsHold),
+                                    .TransitionTo(AwaitingCoinsHold),
                     binder => binder.IfElse(context => context.Saga.Amount > 0,
                         innerBinder => innerBinder
                             .Send(new Uri("queue:payment:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount))
-                            .TransitionTo(WaitingForPaymentIntent),
+                            .TransitionTo(AwaitingPaymentIntent),
                         innerBinder => innerBinder
                             .Send(new Uri("queue:ordering:place-order"), context => new PlaceOrder(context.Saga.OrderId))
-                            .TransitionTo(WaitingForOrderPlacement)
+                            .TransitionTo(AwaitingOrderPlacement)
                     )
                 ),
 
@@ -131,7 +131,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .Finalize()
         );
 
-        During(WaitingForReservationCancellation,
+        During(AwaitingReservationCancellation,
             When(InventoryReleased)
                 .ThenAsync(async context =>
                 {
@@ -155,67 +155,67 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .Finalize()
         );
 
-        During(WaitingForCoinsHold,
+        During(AwaitingCoinsHold,
             When(CoinsHeld)
                 .IfElse(context => context.Saga.Amount > 0,
                     binder => binder.Send(new Uri("queue:payment:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount))
-                                    .TransitionTo(WaitingForPaymentIntent),
+                                    .TransitionTo(AwaitingPaymentIntent),
                     binder => binder.Send(new Uri("queue:ordering:place-order"), context => new PlaceOrder(context.Saga.OrderId))
-                                    .TransitionTo(WaitingForOrderPlacement)
+                                    .TransitionTo(AwaitingOrderPlacement)
                 ),
 
             When(CoinsHoldFailed)
                 .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                .TransitionTo(WaitingForReservationCancellation)
+                .TransitionTo(AwaitingReservationCancellation)
         );
         
-        During(WaitingForHoldCancellation,
+        During(AwaitingCoinsHoldCancellation,
             When(HoldCancelled)
                 .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                .TransitionTo(WaitingForReservationCancellation),
+                .TransitionTo(AwaitingReservationCancellation),
             
             When(HoldCancellationFailed)
                 .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                .TransitionTo(WaitingForReservationCancellation)
+                .TransitionTo(AwaitingReservationCancellation)
         );
 
-        During(WaitingForPaymentIntent,
+        During(AwaitingPaymentIntent,
             When(PaymentIntentCreated)
                 .Send(new Uri("queue:ordering:place-order"), context => new PlaceOrder(context.Saga.OrderId))
-                .TransitionTo(WaitingForOrderPlacement),
+                .TransitionTo(AwaitingOrderPlacement),
 
             When(PaymentIntentFailed)
                 .If(context => context.Saga.CoinsAmount > 0,
                     binder => binder.Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
-                                    .TransitionTo(WaitingForHoldCancellation)
+                                    .TransitionTo(AwaitingCoinsHoldCancellation)
                 )
                 .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                .TransitionTo(WaitingForReservationCancellation)
+                .TransitionTo(AwaitingReservationCancellation)
         );
         
-        During(WaitingForPaymentCancellation,
+        During(AwaitingPaymentIntentCancellation,
             When(PaymentIntentCancelled)
                 .IfElse(context => context.Saga.CoinsAmount > 0, 
                     binder => binder
                         .Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
-                        .TransitionTo(WaitingForHoldCancellation),
+                        .TransitionTo(AwaitingCoinsHoldCancellation),
                     binder => binder
                         .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                        .TransitionTo(WaitingForReservationCancellation)
+                        .TransitionTo(AwaitingReservationCancellation)
                 ),
             
             When(PaymentIntentCancellationFailed)
                 .IfElse(context => context.Saga.CoinsAmount > 0, 
                     binder => binder
                         .Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
-                        .TransitionTo(WaitingForHoldCancellation),
+                        .TransitionTo(AwaitingCoinsHoldCancellation),
                     binder => binder
                         .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                        .TransitionTo(WaitingForReservationCancellation)
+                        .TransitionTo(AwaitingReservationCancellation)
                 )
         );
 
-        During(WaitingForOrderPlacement,
+        During(AwaitingOrderPlacement,
             When(OrderPlaced)
                 .ThenAsync(async context =>
                 {
@@ -230,14 +230,14 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
             When(OrderPlacementFailed)
                 .IfElse(context => context.Saga.Amount > 0,
                     binder => binder.Send(new Uri("queue:payment:cancel-payment-intent"), context => new CancelPaymentIntent(context.Saga.OrderId))
-                                    .TransitionTo(WaitingForPaymentCancellation),
+                                    .TransitionTo(AwaitingPaymentIntentCancellation),
                     binder => binder.IfElse(context => context.Saga.CoinsAmount > 0,
                         innerBinder => innerBinder
                             .Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
-                            .TransitionTo(WaitingForHoldCancellation),
+                            .TransitionTo(AwaitingCoinsHoldCancellation),
                         innerBinder => innerBinder
                             .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                            .TransitionTo(WaitingForReservationCancellation)
+                            .TransitionTo(AwaitingReservationCancellation)
                         )
                 )
         );
