@@ -77,14 +77,14 @@ builder.Services.AddMassTransit(cfg =>
         config.Message<OrderPaymentSagaCompleted>(x => x.SetEntityName("ordering:order-payment-saga-completed"));
         config.Message<OrderPaymentSagaFailed>(x => x.SetEntityName("ordering:order-payment-saga-failed"));
         
-        config.Message<InventoryReserved>(x => x.SetEntityName("inventory:inventory-reserved"));
-        config.Message<InventoryReservationFailed>(x => x.SetEntityName("inventory:inventory-reservation-failed"));
-        config.Message<InventoryReleased>(x => x.SetEntityName("inventory:inventory-released"));
-        config.Message<InventoryReleaseFailed>(x => x.SetEntityName("inventory:inventory-release-failed"));
-        config.Message<InventoryReservationExtended>(x => x.SetEntityName("inventory:inventory-reservation-extended"));
-        config.Message<InventoryReservationExtensionFailed>(x => x.SetEntityName("inventory:inventory-reservation-extension-failed"));
-        config.Message<InventoryReservationReduced>(x => x.SetEntityName("inventory:inventory-reservation-reduced"));
-        config.Message<InventoryReservationReductionFailed>(x => x.SetEntityName("inventory:inventory-reservation-reduction-failed"));
+        config.Message<StockReserved>(x => x.SetEntityName("stock:stock-reserved"));
+        config.Message<StockReservationFailed>(x => x.SetEntityName("stock:stock-reservation-failed"));
+        config.Message<StockReleased>(x => x.SetEntityName("stock:stock-released"));
+        config.Message<StockReleaseFailed>(x => x.SetEntityName("stock:stock-release-failed"));
+        config.Message<StockReservationExtended>(x => x.SetEntityName("stock:stock-reservation-extended"));
+        config.Message<StockReservationExtensionFailed>(x => x.SetEntityName("stock:stock-reservation-extension-failed"));
+        config.Message<StockReservationReduced>(x => x.SetEntityName("stock:stock-reservation-reduced"));
+        config.Message<StockReservationReductionFailed>(x => x.SetEntityName("stock:stock-reservation-reduction-failed"));
         
         config.Message<PaymentIntentCreated>(x => x.SetEntityName("payment:payment-intent-created"));
         config.Message<PaymentIntentFailed>(x => x.SetEntityName("payment:payment-intent-failed"));

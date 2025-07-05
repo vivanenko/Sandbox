@@ -1,5 +1,4 @@
 using MassTransit;
-using MassTransit.RabbitMqTransport.Configuration;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Sandbox.Stock;
@@ -10,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Configuration(context.Configuration));
 builder.Services.AddOpenTelemetry()
-    .ConfigureResource(r => r.AddService("Inventory"))
+    .ConfigureResource(r => r.AddService("Stock"))
     .WithTracing(tracing =>
     {
         tracing
@@ -24,24 +23,24 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddMassTransit(cfg =>
 {
-    cfg.AddConsumer<ReserveInventoryConsumer>().Endpoint(c =>
+    cfg.AddConsumer<ReserveStockConsumer>().Endpoint(c =>
     {
-        c.Name = "inventory:reserve-inventory";
+        c.Name = "stock:reserve-stock";
         c.ConfigureConsumeTopology = false;
     });
-    cfg.AddConsumer<ReleaseInventoryConsumer>().Endpoint(c =>
+    cfg.AddConsumer<ReleaseStockConsumer>().Endpoint(c =>
     {
-        c.Name = "inventory:release-inventory";
+        c.Name = "stock:release-stock";
         c.ConfigureConsumeTopology = false;
     });
-    cfg.AddConsumer<ExtendInventoryReservationConsumer>().Endpoint(c =>
+    cfg.AddConsumer<ExtendStockReservationConsumer>().Endpoint(c =>
     {
-        c.Name = "inventory:extend-inventory-reservation";
+        c.Name = "stock:extend-stock-reservation";
         c.ConfigureConsumeTopology = false;
     });
-    cfg.AddConsumer<ReduceInventoryReservationConsumer>().Endpoint(c =>
+    cfg.AddConsumer<ReduceStockReservationConsumer>().Endpoint(c =>
     {
-        c.Name = "inventory:reduce-inventory-reservation";
+        c.Name = "stock:reduce-stock-reservation";
         c.ConfigureConsumeTopology = false;
     });
 
@@ -50,17 +49,17 @@ builder.Services.AddMassTransit(cfg =>
         config.Host("localhost", 5673, "/", _ => { });
         config.ConfigureEndpoints(context);
         
-        config.Message<InventoryReserved>(x => x.SetEntityName("inventory:inventory-reserved"));
-        config.Message<InventoryReservationFailed>(x => x.SetEntityName("inventory:inventory-reservation-failed"));
+        config.Message<StockReserved>(x => x.SetEntityName("stock:stock-reserved"));
+        config.Message<StockReservationFailed>(x => x.SetEntityName("stock:stock-reservation-failed"));
         
-        config.Message<InventoryReleased>(x => x.SetEntityName("inventory:inventory-released"));
-        config.Message<InventoryReleaseFailed>(x => x.SetEntityName("inventory:inventory-release-failed"));
+        config.Message<StockReleased>(x => x.SetEntityName("stock:stock-released"));
+        config.Message<StockReleaseFailed>(x => x.SetEntityName("stock:stock-release-failed"));
         
-        config.Message<InventoryReservationExtended>(x => x.SetEntityName("inventory:inventory-reservation-extended"));
-        config.Message<InventoryReservationExtensionFailed>(x => x.SetEntityName("inventory:inventory-reservation-extension-failed"));
+        config.Message<StockReservationExtended>(x => x.SetEntityName("stock:stock-reservation-extended"));
+        config.Message<StockReservationExtensionFailed>(x => x.SetEntityName("stock:stock-reservation-extension-failed"));
 
-        config.Message<InventoryReservationReduced>(x => x.SetEntityName("inventory:inventory-reservation-reduced"));
-        config.Message<InventoryReservationReductionFailed>(x => x.SetEntityName("inventory:inventory-reservation-reduction-failed"));
+        config.Message<StockReservationReduced>(x => x.SetEntityName("stock:stock-reservation-reduced"));
+        config.Message<StockReservationReductionFailed>(x => x.SetEntityName("stock:stock-reservation-reduction-failed"));
     });
 });
 

@@ -27,11 +27,11 @@ public class OrderPlacementState : SagaStateMachineInstance, ISagaVersion
 
 public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacementState>
 {
-    public State AwaitingInventoryReservation { get; private set; }
+    public State AwaitingStockReservation { get; private set; }
     public State AwaitingCoinsHold { get; private set; }
     public State AwaitingPaymentIntent { get; private set; }
     public State AwaitingOrderPlacement { get; private set; }
-    public State AwaitingReservationCancellation { get; private set; }
+    public State AwaitingStockReservationCancellation { get; private set; }
     public State AwaitingCoinsHoldCancellation { get; private set; }
     public State AwaitingPaymentIntentCancellation { get; private set; }
 
@@ -39,10 +39,10 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
     public Event<OrderPlacementSagaCompleted> OrderPlacementSagaCompleted { get; private set; }
     public Event<OrderPlacementSagaFailed> OrderPlacementSagaFailed { get; private set; }
     
-    public Event<InventoryReserved> InventoryReserved { get; private set; }
-    public Event<InventoryReservationFailed> InventoryReservationFailed { get; private set; }
-    public Event<InventoryReleased> InventoryReleased { get; private set; }
-    public Event<InventoryReleaseFailed> InventoryReleaseFailed { get; private set; }
+    public Event<StockReserved> StockReserved { get; private set; }
+    public Event<StockReservationFailed> StockReservationFailed { get; private set; }
+    public Event<StockReleased> StockReleased { get; private set; }
+    public Event<StockReleaseFailed> StockReleaseFailed { get; private set; }
 
     public Event<CoinsHeld> CoinsHeld { get; private set; }
     public Event<CoinsHoldFailed> CoinsHoldFailed { get; private set; }
@@ -65,10 +65,10 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
         Event(() => OrderPlacementSagaCompleted, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => OrderPlacementSagaFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
-        Event(() => InventoryReserved, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => InventoryReservationFailed, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => InventoryReleased, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => InventoryReleaseFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => StockReserved, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => StockReservationFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => StockReleased, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => StockReleaseFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Event(() => CoinsHeld, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => CoinsHoldFailed, x => x.CorrelateById(context => context.Message.OrderId));
@@ -100,12 +100,12 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     context.Saga.RequestId = context.RequestId.Value;
                     context.Saga.ResponseAddress = context.ResponseAddress;
                 })
-                .Send(new Uri("queue:inventory:reserve-inventory"), context => new ReserveInventory(context.Saga.OrderId, context.Saga.Items))
-                .TransitionTo(AwaitingInventoryReservation)
+                .Send(new Uri("queue:stock:reserve-stock"), context => new ReserveStock(context.Saga.OrderId, context.Saga.Items))
+                .TransitionTo(AwaitingStockReservation)
         );
 
-        During(AwaitingInventoryReservation,
-            When(InventoryReserved)
+        During(AwaitingStockReservation,
+            When(StockReserved)
                 .IfElse(context => context.Saga.CoinsAmount > 0,
                     binder => binder.Send(new Uri("queue:wallet:hold-coins"), context => new HoldCoins(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                                     .TransitionTo(AwaitingCoinsHold),
@@ -119,7 +119,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     )
                 ),
 
-            When(InventoryReservationFailed)
+            When(StockReservationFailed)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
@@ -131,8 +131,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .Finalize()
         );
 
-        During(AwaitingReservationCancellation,
-            When(InventoryReleased)
+        During(AwaitingStockReservationCancellation,
+            When(StockReleased)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
@@ -143,7 +143,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 })
                 .Finalize(),
             
-            When(InventoryReleaseFailed)
+            When(StockReleaseFailed)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPlacementSagaFailed(context.Saga.OrderId, "");
@@ -165,18 +165,18 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 ),
 
             When(CoinsHoldFailed)
-                .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                .TransitionTo(AwaitingReservationCancellation)
+                .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
+                .TransitionTo(AwaitingStockReservationCancellation)
         );
         
         During(AwaitingCoinsHoldCancellation,
             When(HoldCancelled)
-                .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                .TransitionTo(AwaitingReservationCancellation),
+                .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
+                .TransitionTo(AwaitingStockReservationCancellation),
             
             When(HoldCancellationFailed)
-                .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                .TransitionTo(AwaitingReservationCancellation)
+                .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
+                .TransitionTo(AwaitingStockReservationCancellation)
         );
 
         During(AwaitingPaymentIntent,
@@ -189,8 +189,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     binder => binder.Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                                     .TransitionTo(AwaitingCoinsHoldCancellation)
                 )
-                .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                .TransitionTo(AwaitingReservationCancellation)
+                .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
+                .TransitionTo(AwaitingStockReservationCancellation)
         );
         
         During(AwaitingPaymentIntentCancellation,
@@ -200,8 +200,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                         .Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                         .TransitionTo(AwaitingCoinsHoldCancellation),
                     binder => binder
-                        .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                        .TransitionTo(AwaitingReservationCancellation)
+                        .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
+                        .TransitionTo(AwaitingStockReservationCancellation)
                 ),
             
             When(PaymentIntentCancellationFailed)
@@ -210,8 +210,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                         .Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                         .TransitionTo(AwaitingCoinsHoldCancellation),
                     binder => binder
-                        .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                        .TransitionTo(AwaitingReservationCancellation)
+                        .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
+                        .TransitionTo(AwaitingStockReservationCancellation)
                 )
         );
 
@@ -236,8 +236,8 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                             .Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                             .TransitionTo(AwaitingCoinsHoldCancellation),
                         innerBinder => innerBinder
-                            .Send(new Uri("queue:inventory:release-inventory"), context => new ReleaseInventory(context.Saga.OrderId))
-                            .TransitionTo(AwaitingReservationCancellation)
+                            .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
+                            .TransitionTo(AwaitingStockReservationCancellation)
                         )
                 )
         );

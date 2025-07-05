@@ -21,22 +21,22 @@ public class OrderPaymentState : SagaStateMachineInstance, ISagaVersion
 
 public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentState>
 {
-    public State AwaitingInventoryReservationExtension { get; private set; }
+    public State AwaitingStockReservationExtension { get; private set; }
     public State AwaitingCoinsHoldCommit { get; private set; }
     public State AwaitingPaymentConfirmation { get; private set; }
     public State AwaitingOrderPayment { get; private set; }
     public State AwaitingPaymentRefund { get; private set; }
     public State AwaitingCoinsRefund { get; private set; }
-    public State AwaitingInventoryReservationReduction { get; private set; }
+    public State AwaitingStockReservationReduction { get; private set; }
     
     public Event<StartOrderPaymentSaga> StartOrderPaymentSaga { get; private set; }
     public Event<OrderPaymentSagaFailed> OrderPaymentSagaFailed { get; private set; }
     public Event<OrderPaymentSagaCompleted> OrderPaymentSagaCompleted { get; private set; }
 
-    public Event<InventoryReservationExtended> InventoryReservationExtended { get; private set; }
-    public Event<InventoryReservationExtensionFailed> InventoryReservationExtensionFailed { get; private set; }
-    public Event<InventoryReservationReduced> InventoryReservationReduced { get; private set; }
-    public Event<InventoryReservationReductionFailed> InventoryReservationReductionFailed { get; private set; }
+    public Event<StockReservationExtended> StockReservationExtended { get; private set; }
+    public Event<StockReservationExtensionFailed> StockReservationExtensionFailed { get; private set; }
+    public Event<StockReservationReduced> StockReservationReduced { get; private set; }
+    public Event<StockReservationReductionFailed> StockReservationReductionFailed { get; private set; }
     
     public Event<HoldCommitted> HoldCommitted { get; set; }
     public Event<HoldCommitFailed> HoldCommitFailed { get; set; }
@@ -59,10 +59,10 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
         Event(() => OrderPaymentSagaCompleted, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => OrderPaymentSagaFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
-        Event(() => InventoryReservationExtended, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => InventoryReservationExtensionFailed, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => InventoryReservationReduced, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => InventoryReservationReductionFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => StockReservationExtended, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => StockReservationExtensionFailed, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => StockReservationReduced, x => x.CorrelateById(context => context.Message.OrderId));
+        Event(() => StockReservationReductionFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Event(() => HoldCommitted, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => HoldCommitFailed, x => x.CorrelateById(context => context.Message.OrderId));
@@ -90,16 +90,16 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                     context.Saga.RequestId = context.RequestId.Value;
                     context.Saga.ResponseAddress = context.ResponseAddress;
                 })
-                .Send(new Uri("queue:inventory:extend-inventory-reservation"), context => new ExtendInventoryReservation(context.Saga.OrderId))
-                .TransitionTo(AwaitingInventoryReservationExtension)
+                .Send(new Uri("queue:stock:extend-stock-reservation"), context => new ExtendStockReservation(context.Saga.OrderId))
+                .TransitionTo(AwaitingStockReservationExtension)
         );
         
-        During(AwaitingInventoryReservationExtension,
-            When(InventoryReservationExtended)
+        During(AwaitingStockReservationExtension,
+            When(StockReservationExtended)
                 .Send(new Uri("queue:wallet:commit-hold"), context => new CommitHold(context.Saga.OrderId, context.Saga.UserId))
                 .TransitionTo(AwaitingCoinsHoldCommit),
             
-            When(InventoryReservationExtensionFailed)
+            When(StockReservationExtensionFailed)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPaymentSagaFailed(context.Saga.OrderId, "");
@@ -117,12 +117,12 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                 .TransitionTo(AwaitingPaymentConfirmation),
             
             When(HoldCommitFailed)
-                .Send(new Uri("queue:inventory:reduce-inventory-reservation"), context => new ReduceInventoryReservation(context.Saga.OrderId))
-                .TransitionTo(AwaitingInventoryReservationReduction)
+                .Send(new Uri("queue:stock:reduce-stock-reservation"), context => new ReduceStockReservation(context.Saga.OrderId))
+                .TransitionTo(AwaitingStockReservationReduction)
         );
         
-        During(AwaitingInventoryReservationReduction,
-            When(InventoryReservationReduced)
+        During(AwaitingStockReservationReduction,
+            When(StockReservationReduced)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPaymentSagaFailed(context.Saga.OrderId, "");
@@ -133,7 +133,7 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                 })
                 .Finalize(),
             
-            When(InventoryReservationReductionFailed)
+            When(StockReservationReductionFailed)
                 .ThenAsync(async context =>
                 {
                     var message = new OrderPaymentSagaFailed(context.Saga.OrderId, "");
