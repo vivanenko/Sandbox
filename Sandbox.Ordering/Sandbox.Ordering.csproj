@@ -7,7 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Sandbox.Inventory.Shared\Sandbox.Inventory.Shared.csproj" />
+      <ProjectReference Include="..\Sandbox.Stock.Shared\Sandbox.Stock.Shared.csproj" />
       <ProjectReference Include="..\Sandbox.Ordering.Shared\Sandbox.Ordering.Shared.csproj" />
       <ProjectReference Include="..\Sandbox.Payment.Shared\Sandbox.Payment.Shared.csproj" />
       <ProjectReference Include="..\Sandbox.Wallet.Shared\Sandbox.Wallet.Shared.csproj" />

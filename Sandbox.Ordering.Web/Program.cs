@@ -2,7 +2,7 @@ using MassTransit;
 using MongoDB.Bson.Serialization;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using Sandbox.Inventory.Shared;
+using Sandbox.Stock.Shared;
 using Sandbox.Ordering;
 using Sandbox.Ordering.Sagas.OrderPayment;
 using Sandbox.Ordering.Sagas.OrderPayment.MongoDb;

@@ -1,4 +1,4 @@
-namespace Sandbox.Inventory.Shared;
+namespace Sandbox.Stock.Shared;
 
 public record ReserveInventory(Guid OrderId, ItemDto[] Items);
 public record InventoryReserved(Guid OrderId);

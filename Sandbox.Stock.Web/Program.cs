@@ -2,8 +2,8 @@ using MassTransit;
 using MassTransit.RabbitMqTransport.Configuration;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using Sandbox.Inventory;
-using Sandbox.Inventory.Shared;
+using Sandbox.Stock;
+using Sandbox.Stock.Shared;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);

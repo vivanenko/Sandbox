@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Inventory", "Inventory", "{6B20A7F5-010F-4F9C-B3A4-A824F2947144}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Stock", "Stock", "{6B20A7F5-010F-4F9C-B3A4-A824F2947144}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Wallet", "Wallet", "{78363141-CD41-4145-BA8D-AA72BDAD526B}"
 EndProject
@@ -8,9 +8,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Payment", "Payment", "{0A52
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Ordering", "Ordering", "{367A0D7E-9EB0-490F-AF44-5C2DB2E92278}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.Inventory", "Sandbox.Inventory\Sandbox.Inventory.csproj", "{CA974690-BE83-422C-89C6-EE7FB3068B5E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.Stock", "Sandbox.Stock\Sandbox.Stock.csproj", "{CA974690-BE83-422C-89C6-EE7FB3068B5E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.Inventory.Web", "Sandbox.Inventory.Web\Sandbox.Inventory.Web.csproj", "{D6704160-8C69-4C13-A2C0-68DEF99E1FD3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.Stock.Web", "Sandbox.Stock.Web\Sandbox.Stock.Web.csproj", "{D6704160-8C69-4C13-A2C0-68DEF99E1FD3}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.Wallet", "Sandbox.Wallet\Sandbox.Wallet.csproj", "{D3F5DD3F-90FA-43C0-B423-DE3058C9232D}"
 EndProject
@@ -24,7 +24,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.Payment.Web", "Sand
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.Wallet.Web", "Sandbox.Wallet.Web\Sandbox.Wallet.Web.csproj", "{335B5735-E9FE-4AAC-AAE8-2C87170A60B1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.Inventory.Shared", "Sandbox.Inventory.Shared\Sandbox.Inventory.Shared.csproj", "{DFDB964D-3A00-4F46-80E9-A8467BF47609}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox.Stock.Shared", "Sandbox.Stock.Shared\Sandbox.Stock.Shared.csproj", "{DFDB964D-3A00-4F46-80E9-A8467BF47609}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{F744932C-781C-46EF-A633-CA0DF1FC534E}"
 EndProject

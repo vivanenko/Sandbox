@@ -1,5 +1,5 @@
 using MassTransit;
-using Sandbox.Inventory.Shared;
+using Sandbox.Stock.Shared;
 using Sandbox.Ordering.Shared;
 using Sandbox.Payment.Shared;
 using Sandbox.Wallet.Shared;

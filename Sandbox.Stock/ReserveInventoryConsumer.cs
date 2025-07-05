@@ -1,7 +1,7 @@
 using MassTransit;
-using Sandbox.Inventory.Shared;
+using Sandbox.Stock.Shared;
 
-namespace Sandbox.Inventory;
+namespace Sandbox.Stock;
 
 public class ReserveInventoryConsumer : IConsumer<ReserveInventory>
 {

@@ -17,7 +17,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Sandbox.Inventory\Sandbox.Inventory.csproj" />
+      <ProjectReference Include="..\Sandbox.Stock\Sandbox.Stock.csproj" />
     </ItemGroup>
 
 </Project>

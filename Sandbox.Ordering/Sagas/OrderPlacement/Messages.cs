@@ -1,4 +1,4 @@
-using Sandbox.Inventory.Shared;
+using Sandbox.Stock.Shared;
 
 namespace Sandbox.Ordering.Sagas.OrderPlacement;
 
