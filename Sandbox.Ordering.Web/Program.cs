@@ -49,11 +49,12 @@ builder.Services.AddSingleton<BsonClassMap<OrderPaymentState>, OrderPaymentState
 builder.Services.AddSingleton<BsonClassMap<OrderConfirmationState>, OrderConfirmationStateClassMap>();
 builder.Services.AddMassTransit(cfg =>
 {
+    const string databaseName = "ordering";
     cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
         .MongoDbRepository(r =>
         {
             r.Connection = builder.Configuration.GetConnectionString("Saga");
-            r.DatabaseName = "orderPlacementSaga";
+            r.DatabaseName = databaseName;
             r.CollectionName = "orderPlacementSagaStates";
         })
         .Endpoint(e => e.Name = "ordering:order-placement-saga-state");
@@ -61,7 +62,7 @@ builder.Services.AddMassTransit(cfg =>
         .MongoDbRepository(r =>
         {
             r.Connection = builder.Configuration.GetConnectionString("Saga");
-            r.DatabaseName = "orderPaymentSaga";
+            r.DatabaseName = databaseName;
             r.CollectionName = "orderPaymentSagaStates";
         })
         .Endpoint(e => e.Name = "ordering:order-payment-saga-state");
@@ -69,7 +70,7 @@ builder.Services.AddMassTransit(cfg =>
         .MongoDbRepository(r =>
         {
             r.Connection = builder.Configuration.GetConnectionString("Saga");
-            r.DatabaseName = "orderConfirmationSaga";
+            r.DatabaseName = databaseName;
             r.CollectionName = "orderConfirmationSagaStates";
         })
         .Endpoint(e => e.Name = "ordering:order-confirmation-saga-state");
