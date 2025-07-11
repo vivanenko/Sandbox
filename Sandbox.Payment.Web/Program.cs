@@ -1,23 +1,36 @@
+using dotenv.net;
+using Grafana.OpenTelemetry;
 using MassTransit;
-using OpenTelemetry.Resources;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Sandbox.Payment;
 using Sandbox.Payment.Shared;
-using Serilog;
+
+DotEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Configuration(context.Configuration));
 builder.Services.AddOpenTelemetry()
-    .ConfigureResource(r => r.AddService("Payment"))
-    .WithTracing(tracing =>
+    .WithTracing(configure =>
     {
-        tracing
-            .AddHttpClientInstrumentation()
+        configure
+            .UseGrafana()
             .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
             .AddSource(MassTransit.Logging.DiagnosticHeaders.DefaultListenerName);
-        tracing.AddOtlpExporter();
+    })
+    .WithMetrics(configure =>
+    {
+        configure
+            .UseGrafana()
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation();
     });
+
+builder.Logging.AddOpenTelemetry(options =>
+{
+    options.UseGrafana();
+});
 
 builder.Services.AddOpenApi();
 
@@ -67,7 +80,5 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
-
-app.UseSerilogRequestLogging();
 
 app.Run();
