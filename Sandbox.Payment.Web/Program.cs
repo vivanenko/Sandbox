@@ -6,6 +6,8 @@ using OpenTelemetry.Trace;
 using Sandbox.Payment;
 using Sandbox.Payment.Shared;
 
+const string serviceName = "Payment";
+
 DotEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,7 +16,10 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(configure =>
     {
         configure
-            .UseGrafana()
+            .UseGrafana(grafana =>
+            {
+                grafana.ServiceName = serviceName;
+            })
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
             .AddSource(MassTransit.Logging.DiagnosticHeaders.DefaultListenerName);
@@ -22,14 +27,20 @@ builder.Services.AddOpenTelemetry()
     .WithMetrics(configure =>
     {
         configure
-            .UseGrafana()
+            .UseGrafana(grafana =>
+            {
+                grafana.ServiceName = serviceName;
+            })
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation();
     });
 
 builder.Logging.AddOpenTelemetry(options =>
 {
-    options.UseGrafana();
+    options.UseGrafana(grafana =>
+    {
+        grafana.ServiceName = serviceName;
+    });
 });
 
 builder.Services.AddOpenApi();
