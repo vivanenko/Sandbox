@@ -2,7 +2,6 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework;
@@ -11,16 +10,13 @@ using Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework;
 
 namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
 {
-    [DbContext(typeof(OrderPlacementStateDbContext))]
-    [Migration("20250712130437_Initial")]
-    partial class Initial
+    [DbContext(typeof(OrderPlacementSagaDbContext))]
+    partial class OrderPlacementSagaDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("order_placement")
                 .HasAnnotation("ProductVersion", "9.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -70,7 +66,7 @@ namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState", "order_placement");
+                    b.ToTable("InboxState");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -161,7 +157,7 @@ namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage", "order_placement");
+                    b.ToTable("OutboxMessage");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -191,7 +187,7 @@ namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState", "order_placement");
+                    b.ToTable("OutboxState");
                 });
 
             modelBuilder.Entity("Sandbox.Ordering.Sagas.OrderPlacement.OrderPlacementState", b =>
@@ -227,12 +223,18 @@ namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("CorrelationId");
 
-                    b.ToTable("OrderPlacementState", "order_placement");
+                    b.ToTable("OrderPlacementState");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>

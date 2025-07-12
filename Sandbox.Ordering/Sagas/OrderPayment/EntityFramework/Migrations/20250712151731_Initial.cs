@@ -4,7 +4,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
+namespace Sandbox.Ordering.Sagas.OrderPayment.EntityFramework.Migrations
 {
     /// <inheritdoc />
     public partial class Initial : Migration
@@ -12,12 +12,8 @@ namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.EnsureSchema(
-                name: "order_placement");
-
             migrationBuilder.CreateTable(
                 name: "InboxState",
-                schema: "order_placement",
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
@@ -40,29 +36,24 @@ namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "OrderPlacementState",
-                schema: "order_placement",
+                name: "OrderPaymentState",
                 columns: table => new
                 {
                     CorrelationId = table.Column<Guid>(type: "uuid", nullable: false),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     CurrentState = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     OrderId = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CoinsAmount = table.Column<int>(type: "integer", nullable: false),
-                    Amount = table.Column<decimal>(type: "numeric", nullable: false),
-                    Items = table.Column<string>(type: "text", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     RequestId = table.Column<Guid>(type: "uuid", nullable: false),
                     ResponseAddress = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_OrderPlacementState", x => x.CorrelationId);
+                    table.PrimaryKey("PK_OrderPaymentState", x => x.CorrelationId);
                 });
 
             migrationBuilder.CreateTable(
                 name: "OutboxState",
-                schema: "order_placement",
                 columns: table => new
                 {
                     OutboxId = table.Column<Guid>(type: "uuid", nullable: false),
@@ -79,7 +70,6 @@ namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
 
             migrationBuilder.CreateTable(
                 name: "OutboxMessage",
-                schema: "order_placement",
                 columns: table => new
                 {
                     SequenceNumber = table.Column<long>(type: "bigint", nullable: false)
@@ -111,52 +101,44 @@ namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
                     table.ForeignKey(
                         name: "FK_OutboxMessage_InboxState_InboxMessageId_InboxConsumerId",
                         columns: x => new { x.InboxMessageId, x.InboxConsumerId },
-                        principalSchema: "order_placement",
                         principalTable: "InboxState",
                         principalColumns: new[] { "MessageId", "ConsumerId" });
                     table.ForeignKey(
                         name: "FK_OutboxMessage_OutboxState_OutboxId",
                         column: x => x.OutboxId,
-                        principalSchema: "order_placement",
                         principalTable: "OutboxState",
                         principalColumn: "OutboxId");
                 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_InboxState_Delivered",
-                schema: "order_placement",
                 table: "InboxState",
                 column: "Delivered");
 
             migrationBuilder.CreateIndex(
                 name: "IX_OutboxMessage_EnqueueTime",
-                schema: "order_placement",
                 table: "OutboxMessage",
                 column: "EnqueueTime");
 
             migrationBuilder.CreateIndex(
                 name: "IX_OutboxMessage_ExpirationTime",
-                schema: "order_placement",
                 table: "OutboxMessage",
                 column: "ExpirationTime");
 
             migrationBuilder.CreateIndex(
                 name: "IX_OutboxMessage_InboxMessageId_InboxConsumerId_SequenceNumber",
-                schema: "order_placement",
                 table: "OutboxMessage",
                 columns: new[] { "InboxMessageId", "InboxConsumerId", "SequenceNumber" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_OutboxMessage_OutboxId_SequenceNumber",
-                schema: "order_placement",
                 table: "OutboxMessage",
                 columns: new[] { "OutboxId", "SequenceNumber" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_OutboxState_Created",
-                schema: "order_placement",
                 table: "OutboxState",
                 column: "Created");
         }
@@ -165,20 +147,16 @@ namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "OrderPlacementState",
-                schema: "order_placement");
+                name: "OrderPaymentState");
 
             migrationBuilder.DropTable(
-                name: "OutboxMessage",
-                schema: "order_placement");
+                name: "OutboxMessage");
 
             migrationBuilder.DropTable(
-                name: "InboxState",
-                schema: "order_placement");
+                name: "InboxState");
 
             migrationBuilder.DropTable(
-                name: "OutboxState",
-                schema: "order_placement");
+                name: "OutboxState");
         }
     }
 }

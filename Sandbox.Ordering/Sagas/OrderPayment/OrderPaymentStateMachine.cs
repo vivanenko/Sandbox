@@ -6,10 +6,10 @@ using Sandbox.Wallet.Shared;
 
 namespace Sandbox.Ordering.Sagas.OrderPayment;
 
-public class OrderPaymentState : SagaStateMachineInstance, ISagaVersion
+public class OrderPaymentState : SagaStateMachineInstance
 {
     public Guid CorrelationId { get; set; }
-    public int Version { get; set; }
+    public uint RowVersion { get; set; }
     public string CurrentState { get; set; }
     
     public Guid OrderId { get; set; }

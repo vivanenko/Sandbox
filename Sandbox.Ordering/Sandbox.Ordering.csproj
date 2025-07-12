@@ -21,6 +21,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Folder Include="Sagas\OrderPayment\EntityFramework\Migrations\" />
       <Folder Include="Sagas\OrderPlacement\EntityFramework\Migrations\" />
     </ItemGroup>
 

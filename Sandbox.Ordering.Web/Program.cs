@@ -10,7 +10,7 @@ using Sandbox.Ordering;
 using Sandbox.Ordering.Sagas.OrderConfirmation;
 using Sandbox.Ordering.Sagas.OrderConfirmation.MongoDb;
 using Sandbox.Ordering.Sagas.OrderPayment;
-using Sandbox.Ordering.Sagas.OrderPayment.MongoDb;
+using Sandbox.Ordering.Sagas.OrderPayment.EntityFramework;
 using Sandbox.Ordering.Sagas.OrderPlacement;
 using Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework;
 using Sandbox.Ordering.Shared;
@@ -56,27 +56,24 @@ builder.Logging.AddOpenTelemetry(options =>
 
 builder.Services.AddOpenApi();
 
-builder.Services.AddDbContext<OrderPlacementStateDbContext>(options =>
+builder.Services.AddDbContext<OrderPlacementSagaDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("OrderingSagas"), m =>
-    {
-        m.MigrationsHistoryTable("__EFMigrationsHistory", OrderPlacementStateDbContext.Schema);
-    });
+    options.UseNpgsql(builder.Configuration.GetConnectionString("OrderingPlacement"));
+});
+builder.Services.AddDbContext<OrderPaymentSagaDbContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("OrderingPayment"));
 });
 
-builder.Services.AddSingleton<BsonClassMap<OrderPaymentState>, OrderPaymentStateClassMap>();
 builder.Services.AddSingleton<BsonClassMap<OrderConfirmationState>, OrderConfirmationStateClassMap>();
 builder.Services.AddMassTransit(cfg =>
 {
-    const string databaseName = "ordering";
+    // Placement
     cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
         .EntityFrameworkRepository(r =>
         {
-            r.ConcurrencyMode = ConcurrencyMode.Pessimistic;
-            r.AddDbContext<DbContext, OrderPlacementStateDbContext>((_, o) =>
-            {
-                o.UseNpgsql(builder.Configuration.GetConnectionString("OrderingSagas"));
-            });
+            r.ConcurrencyMode = ConcurrencyMode.Optimistic;
+            r.ExistingDbContext<OrderPlacementSagaDbContext>();
             r.UsePostgres();
         })
         .Endpoint(e =>
@@ -84,23 +81,39 @@ builder.Services.AddMassTransit(cfg =>
             e.Name = "ordering:order-placement-saga-state";
             e.AddConfigureEndpointCallback((context, c) =>
             {
-                c.UseEntityFrameworkOutbox<OrderPlacementStateDbContext>(context);
+                c.UseEntityFrameworkOutbox<OrderPlacementSagaDbContext>(context);
             });
         });
-    cfg.AddEntityFrameworkOutbox<OrderPlacementStateDbContext>(o =>
+    cfg.AddEntityFrameworkOutbox<OrderPlacementSagaDbContext>(o =>
     {
         o.UsePostgres();
         o.UseBusOutbox();
     });
     
+    // Payment
     cfg.AddSagaStateMachine<OrderPaymentStateMachine, OrderPaymentState>()
-        .MongoDbRepository(r =>
+        .EntityFrameworkRepository(r =>
         {
-            r.Connection = builder.Configuration.GetConnectionString("Saga");
-            r.DatabaseName = databaseName;
-            r.CollectionName = "orderPaymentSagaStates";
+            r.ConcurrencyMode = ConcurrencyMode.Optimistic;
+            r.ExistingDbContext<OrderPaymentSagaDbContext>();
+            r.UsePostgres();
         })
-        .Endpoint(e => e.Name = "ordering:order-payment-saga-state");
+        .Endpoint(e =>
+        {
+            e.Name = "ordering:order-payment-saga-state";
+            e.AddConfigureEndpointCallback((context, c) =>
+            {
+                c.UseEntityFrameworkOutbox<OrderPaymentSagaDbContext>(context);
+            });
+        });
+    cfg.AddEntityFrameworkOutbox<OrderPaymentSagaDbContext>(o =>
+    {
+        o.UsePostgres();
+        o.UseBusOutbox();
+    });
+    
+    // Confirmation
+    const string databaseName = "ordering";
     cfg.AddSagaStateMachine<OrderConfirmationStateMachine, OrderConfirmationState>()
         .MongoDbRepository(r =>
         {
@@ -197,8 +210,12 @@ if (app.Environment.IsDevelopment())
 
 using (var scope = app.Services.CreateScope())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<OrderPlacementStateDbContext>();
-    dbContext.Database.Migrate();
+    await using var orderPlacementDbContext = scope.ServiceProvider.GetRequiredService<OrderPlacementSagaDbContext>();
+    await using var orderPaymentDbContext = scope.ServiceProvider.GetRequiredService<OrderPaymentSagaDbContext>();
+    await Task.WhenAll(
+        orderPlacementDbContext.Database.MigrateAsync(),
+        orderPaymentDbContext.Database.MigrateAsync()
+    );
 }
 
 app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacementSaga> requestClient,
