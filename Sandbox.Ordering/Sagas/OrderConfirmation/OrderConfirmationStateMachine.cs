@@ -4,10 +4,10 @@ using Sandbox.Stock.Shared;
 
 namespace Sandbox.Ordering.Sagas.OrderConfirmation;
 
-public class OrderConfirmationState : SagaStateMachineInstance, ISagaVersion
+public class OrderConfirmationState : SagaStateMachineInstance
 {
     public Guid CorrelationId { get; set; }
-    public int Version { get; set; }
+    public uint RowVersion { get; set; }
     public string CurrentState { get; set; }
     
     public Guid OrderId { get; set; }

@@ -2,13 +2,12 @@ using dotenv.net;
 using Grafana.OpenTelemetry;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
-using MongoDB.Bson.Serialization;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Sandbox.Stock.Shared;
 using Sandbox.Ordering;
 using Sandbox.Ordering.Sagas.OrderConfirmation;
-using Sandbox.Ordering.Sagas.OrderConfirmation.MongoDb;
+using Sandbox.Ordering.Sagas.OrderConfirmation.EntityFramework;
 using Sandbox.Ordering.Sagas.OrderPayment;
 using Sandbox.Ordering.Sagas.OrderPayment.EntityFramework;
 using Sandbox.Ordering.Sagas.OrderPlacement;
@@ -64,11 +63,15 @@ builder.Services.AddDbContext<OrderPaymentSagaDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("OrderingPayment"));
 });
+builder.Services.AddDbContext<OrderConfirmationSagaDbContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("OrderingConfirmation"));
+});
 
-builder.Services.AddSingleton<BsonClassMap<OrderConfirmationState>, OrderConfirmationStateClassMap>();
 builder.Services.AddMassTransit(cfg =>
 {
     // Placement
+    cfg.AddRequestClient<StartOrderPlacementSaga>();
     cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
         .EntityFrameworkRepository(r =>
         {
@@ -87,10 +90,10 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddEntityFrameworkOutbox<OrderPlacementSagaDbContext>(o =>
     {
         o.UsePostgres();
-        o.UseBusOutbox();
     });
     
     // Payment
+    cfg.AddRequestClient<StartOrderPaymentSaga>();
     cfg.AddSagaStateMachine<OrderPaymentStateMachine, OrderPaymentState>()
         .EntityFrameworkRepository(r =>
         {
@@ -109,23 +112,29 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddEntityFrameworkOutbox<OrderPaymentSagaDbContext>(o =>
     {
         o.UsePostgres();
-        o.UseBusOutbox();
     });
     
     // Confirmation
-    const string databaseName = "ordering";
-    cfg.AddSagaStateMachine<OrderConfirmationStateMachine, OrderConfirmationState>()
-        .MongoDbRepository(r =>
-        {
-            r.Connection = builder.Configuration.GetConnectionString("Saga");
-            r.DatabaseName = databaseName;
-            r.CollectionName = "orderConfirmationSagaStates";
-        })
-        .Endpoint(e => e.Name = "ordering:order-confirmation-saga-state");
-    
-    cfg.AddRequestClient<StartOrderPlacementSaga>();
-    cfg.AddRequestClient<StartOrderPaymentSaga>();
     cfg.AddRequestClient<StartOrderConfirmationSaga>();
+    cfg.AddSagaStateMachine<OrderConfirmationStateMachine, OrderConfirmationState>()
+        .EntityFrameworkRepository(r =>
+        {
+            r.ConcurrencyMode = ConcurrencyMode.Optimistic;
+            r.ExistingDbContext<OrderConfirmationSagaDbContext>();
+            r.UsePostgres();
+        })
+        .Endpoint(e =>
+        {
+            e.Name = "ordering:order-confirmation-saga-state";
+            e.AddConfigureEndpointCallback((context, c) =>
+            {
+                c.UseEntityFrameworkOutbox<OrderConfirmationSagaDbContext>(context);
+            });
+        });
+    cfg.AddEntityFrameworkOutbox<OrderConfirmationSagaDbContext>(o =>
+    {
+        o.UsePostgres();
+    });
     
     cfg.AddConsumer<PlaceOrderConsumer>().Endpoint(c =>
     {
@@ -212,9 +221,11 @@ using (var scope = app.Services.CreateScope())
 {
     await using var orderPlacementDbContext = scope.ServiceProvider.GetRequiredService<OrderPlacementSagaDbContext>();
     await using var orderPaymentDbContext = scope.ServiceProvider.GetRequiredService<OrderPaymentSagaDbContext>();
+    await using var orderConfirmationDbContext = scope.ServiceProvider.GetRequiredService<OrderConfirmationSagaDbContext>();
     await Task.WhenAll(
         orderPlacementDbContext.Database.MigrateAsync(),
-        orderPaymentDbContext.Database.MigrateAsync()
+        orderPaymentDbContext.Database.MigrateAsync(),
+        orderConfirmationDbContext.Database.MigrateAsync()
     );
 }
 
