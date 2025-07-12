@@ -1,4 +1,5 @@
 using MassTransit;
+using Sandbox.Ordering.Models;
 using Sandbox.Stock.Shared;
 using Sandbox.Ordering.Shared;
 using Sandbox.Payment.Shared;
@@ -17,7 +18,7 @@ public class OrderPlacementState : SagaStateMachineInstance
 
     public int CoinsAmount { get; set; }
     public decimal Amount { get; set; }
-    public ItemDto[] Items { get; set; } = [];
+    public StockItem[] Items { get; set; } = [];
 
     public DateTime CreatedAt { get; set; }
     
@@ -100,7 +101,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     context.Saga.RequestId = context.RequestId.Value;
                     context.Saga.ResponseAddress = context.ResponseAddress;
                 })
-                .Send(new Uri("queue:stock:reserve-stock"), context => new ReserveStock(context.Saga.OrderId, context.Saga.Items))
+                .Send(new Uri("queue:stock:reserve-stock"), context => new ReserveStock(context.Saga.OrderId, context.Saga.Items.ToDtos()))
                 .TransitionTo(AwaitingStockReservation)
         );
 

@@ -2,6 +2,7 @@ using System.Text.Json;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Sandbox.Ordering.Models;
 using Sandbox.Stock.Shared;
 
 namespace Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework;
@@ -16,7 +17,7 @@ public class OrderPlacementStateMap : SagaClassMap<OrderPlacementState>
         entity.Property(e => e.Items)
             .HasConversion(
                 items => JsonSerializer.Serialize(items, (JsonSerializerOptions?)null),
-                json => JsonSerializer.Deserialize<ItemDto[]>(json, (JsonSerializerOptions?)null))
+                json => JsonSerializer.Deserialize<StockItem[]>(json, (JsonSerializerOptions?)null))
             .HasColumnType("text");
     }
 }
