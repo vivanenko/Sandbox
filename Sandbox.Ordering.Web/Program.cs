@@ -1,6 +1,7 @@
 using dotenv.net;
 using Grafana.OpenTelemetry;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using MongoDB.Bson.Serialization;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -11,7 +12,7 @@ using Sandbox.Ordering.Sagas.OrderConfirmation.MongoDb;
 using Sandbox.Ordering.Sagas.OrderPayment;
 using Sandbox.Ordering.Sagas.OrderPayment.MongoDb;
 using Sandbox.Ordering.Sagas.OrderPlacement;
-using Sandbox.Ordering.Sagas.OrderPlacement.MongoDb;
+using Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework;
 using Sandbox.Ordering.Shared;
 using Sandbox.Payment.Shared;
 using Sandbox.Wallet.Shared;
@@ -55,20 +56,43 @@ builder.Logging.AddOpenTelemetry(options =>
 
 builder.Services.AddOpenApi();
 
-builder.Services.AddSingleton<BsonClassMap<OrderPlacementState>, OrderPlacementStateClassMap>();
+builder.Services.AddDbContext<OrderPlacementStateDbContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("OrderingSagas"), m =>
+    {
+        m.MigrationsHistoryTable("__EFMigrationsHistory", OrderPlacementStateDbContext.Schema);
+    });
+});
+
 builder.Services.AddSingleton<BsonClassMap<OrderPaymentState>, OrderPaymentStateClassMap>();
 builder.Services.AddSingleton<BsonClassMap<OrderConfirmationState>, OrderConfirmationStateClassMap>();
 builder.Services.AddMassTransit(cfg =>
 {
     const string databaseName = "ordering";
     cfg.AddSagaStateMachine<OrderPlacementStateMachine, OrderPlacementState>()
-        .MongoDbRepository(r =>
+        .EntityFrameworkRepository(r =>
         {
-            r.Connection = builder.Configuration.GetConnectionString("Saga");
-            r.DatabaseName = databaseName;
-            r.CollectionName = "orderPlacementSagaStates";
+            r.ConcurrencyMode = ConcurrencyMode.Pessimistic;
+            r.AddDbContext<DbContext, OrderPlacementStateDbContext>((_, o) =>
+            {
+                o.UseNpgsql(builder.Configuration.GetConnectionString("OrderingSagas"));
+            });
+            r.UsePostgres();
         })
-        .Endpoint(e => e.Name = "ordering:order-placement-saga-state");
+        .Endpoint(e =>
+        {
+            e.Name = "ordering:order-placement-saga-state";
+            e.AddConfigureEndpointCallback((context, c) =>
+            {
+                c.UseEntityFrameworkOutbox<OrderPlacementStateDbContext>(context);
+            });
+        });
+    cfg.AddEntityFrameworkOutbox<OrderPlacementStateDbContext>(o =>
+    {
+        o.UsePostgres();
+        o.UseBusOutbox();
+    });
+    
     cfg.AddSagaStateMachine<OrderPaymentStateMachine, OrderPaymentState>()
         .MongoDbRepository(r =>
         {
@@ -169,6 +193,12 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<OrderPlacementStateDbContext>();
+    dbContext.Database.Migrate();
 }
 
 app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacementSaga> requestClient,

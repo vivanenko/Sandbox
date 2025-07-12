@@ -6,10 +6,9 @@ using Sandbox.Wallet.Shared;
 
 namespace Sandbox.Ordering.Sagas.OrderPlacement;
 
-public class OrderPlacementState : SagaStateMachineInstance, ISagaVersion
+public class OrderPlacementState : SagaStateMachineInstance
 {
     public Guid CorrelationId { get; set; }
-    public int Version { get; set; }
     public string CurrentState { get; set; }
 
     public Guid OrderId { get; set; }
