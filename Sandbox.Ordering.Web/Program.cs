@@ -6,6 +6,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Sandbox.Stock.Shared;
 using Sandbox.Ordering;
+using Sandbox.Ordering.Clients.Cart;
 using Sandbox.Ordering.Sagas.OrderConfirmation;
 using Sandbox.Ordering.Sagas.OrderConfirmation.EntityFramework;
 using Sandbox.Ordering.Sagas.OrderPayment;
@@ -54,6 +55,13 @@ builder.Logging.AddOpenTelemetry(options =>
 });
 
 builder.Services.AddOpenApi();
+
+builder.Services.AddHttpClient<ICartClient, CartClient>((_, httpClient) =>
+{
+    var cartUri = builder.Configuration.GetSection("Clients:Cart:Uri").Value;
+    if (string.IsNullOrWhiteSpace(cartUri)) throw new Exception("Cart URI is not configured");
+    httpClient.BaseAddress = new Uri(cartUri);
+}).AddStandardResilienceHandler();
 
 builder.Services.AddDbContext<OrderPlacementSagaDbContext>(options =>
 {
@@ -229,9 +237,11 @@ using (var scope = app.Services.CreateScope())
     );
 }
 
-app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacementSaga> requestClient,
+app.MapGet("checkout/run", async (IRequestClient<StartOrderPlacementSaga> requestClient, ICartClient cartClient,
     CancellationToken cancellationToken) =>
 {
+    var cart = await cartClient.GetCartAsync(Guid.CreateVersion7(), cancellationToken);
+    
     var command = new StartOrderPlacementSaga(Guid.CreateVersion7(), Guid.CreateVersion7(), 10, 5, []);
     var response = await requestClient
         .GetResponse<OrderPlacementSagaCompleted, OrderPlacementSagaFailed>(command, cancellationToken);

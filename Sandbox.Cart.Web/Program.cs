@@ -2,6 +2,7 @@ using dotenv.net;
 using Grafana.OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using Sandbox.Cart;
 
 const string serviceName = "Cart";
 
@@ -50,7 +51,8 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/cart", async () =>
 {
-    return Results.Ok(new { Items = new[] { new { Id = 1, Name = "Item 1" }, new { Id = 2, Name = "Item 2" } } });
+    var cart = new Cart { CartItems = [new CartItem { Id = Guid.CreateVersion7() }] };
+    return Results.Ok(cart);
 });
 
 app.Run();
