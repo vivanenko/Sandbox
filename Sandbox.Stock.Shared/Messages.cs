@@ -1,6 +1,6 @@
 namespace Sandbox.Stock.Shared;
 
-public record ReserveStock(Guid OrderId, ItemDto[] Items);
+public record ReserveStock(Guid OrderId, Item[] Items);
 public record StockReserved(Guid OrderId);
 public record StockReservationFailed(Guid OrderId, string Reason);
 
