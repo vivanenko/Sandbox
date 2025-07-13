@@ -31,7 +31,6 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
     public State AwaitingStockReservation { get; private set; }
     public State AwaitingCoinsHold { get; private set; }
     public State AwaitingPaymentIntent { get; private set; }
-    public State AwaitingOrderPlacement { get; private set; }
     public State AwaitingStockReservationCancellation { get; private set; }
     public State AwaitingCoinsHoldCancellation { get; private set; }
     public State AwaitingPaymentIntentCancellation { get; private set; }
@@ -55,9 +54,6 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
     public Event<PaymentIntentCancelled> PaymentIntentCancelled { get; private set; }
     public Event<PaymentIntentCancellationFailed> PaymentIntentCancellationFailed { get; private set; }
 
-    public Event<OrderPlaced> OrderPlaced { get; private set; }
-    public Event<OrderPlacementFailed> OrderPlacementFailed { get; private set; }
-    
     public OrderPlacementStateMachine()
     {
         InstanceState(x => x.CurrentState);
@@ -80,9 +76,6 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
         Event(() => PaymentIntentFailed, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => PaymentIntentCancelled, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => PaymentIntentCancellationFailed, x => x.CorrelateById(context => context.Message.OrderId));
-        
-        Event(() => OrderPlaced, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => OrderPlacementFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Initially(
             When(StartOrderPlacement)
@@ -115,8 +108,23 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                             .Send(new Uri("queue:payment:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount))
                             .TransitionTo(AwaitingPaymentIntent),
                         innerBinder => innerBinder
-                            .Send(new Uri("queue:ordering:place-order"), context => new PlaceOrder(context.Saga.OrderId))
-                            .TransitionTo(AwaitingOrderPlacement)
+                            .ThenAsync(async context =>
+                            {
+                                Console.WriteLine("Saving order to the database and publishing OrderPlaced event");
+                                var success = true;
+                                if (!success) throw new Exception("Failed to save order to the database");
+                                
+                                var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, true);
+                                await context.Send(context.Saga.ResponseAddress, message, sendContext =>
+                                {
+                                    sendContext.RequestId = context.Saga.RequestId;
+                                });
+                            })
+                            .Finalize()
+                            .Catch<Exception>(exception => exception
+                                .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
+                                .TransitionTo(AwaitingStockReservationCancellation)
+                            )
                     )
                 ),
 
@@ -161,8 +169,24 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .IfElse(context => context.Saga.Amount > 0,
                     binder => binder.Send(new Uri("queue:payment:create-payment-intent"), context => new CreatePaymentIntent(context.Saga.OrderId, context.Saga.UserId, context.Saga.Amount))
                                     .TransitionTo(AwaitingPaymentIntent),
-                    binder => binder.Send(new Uri("queue:ordering:place-order"), context => new PlaceOrder(context.Saga.OrderId))
-                                    .TransitionTo(AwaitingOrderPlacement)
+                    binder => binder
+                        .ThenAsync(async context =>
+                        {
+                            Console.WriteLine("Saving order to the database and publishing OrderPlaced event");
+                            var success = true;
+                            if (!success) throw new Exception("Failed to save order to the database");
+                            
+                            var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, true);
+                            await context.Send(context.Saga.ResponseAddress, message, sendContext =>
+                            {
+                                sendContext.RequestId = context.Saga.RequestId;
+                            });
+                        })
+                        .Finalize()
+                        .Catch<Exception>(exception => exception
+                            .Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
+                            .TransitionTo(AwaitingCoinsHoldCancellation)
+                        )
                 ),
 
             When(CoinsHoldFailed)
@@ -182,8 +206,23 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
 
         During(AwaitingPaymentIntent,
             When(PaymentIntentCreated)
-                .Send(new Uri("queue:ordering:place-order"), context => new PlaceOrder(context.Saga.OrderId))
-                .TransitionTo(AwaitingOrderPlacement),
+                .ThenAsync(async context =>
+                {
+                    Console.WriteLine("Saving order to the database and publishing OrderPlaced event");
+                    var success = true;
+                    if (!success) throw new Exception("Failed to save order to the database");
+                    
+                    var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, true);
+                    await context.Send(context.Saga.ResponseAddress, message, sendContext =>
+                    {
+                        sendContext.RequestId = context.Saga.RequestId;
+                    });
+                })
+                .Finalize()
+                .Catch<Exception>(exception => exception
+                    .Send(new Uri("queue:payment:cancel-payment-intent"), context => new CancelPaymentIntent(context.Saga.OrderId))
+                    .TransitionTo(AwaitingPaymentIntentCancellation)
+                ),
 
             When(PaymentIntentFailed)
                 .If(context => context.Saga.CoinsAmount > 0,
@@ -196,7 +235,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
         
         During(AwaitingPaymentIntentCancellation,
             When(PaymentIntentCancelled)
-                .IfElse(context => context.Saga.CoinsAmount > 0, 
+                .IfElse(context => context.Saga.CoinsAmount > 0,
                     binder => binder
                         .Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                         .TransitionTo(AwaitingCoinsHoldCancellation),
@@ -206,40 +245,13 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 ),
             
             When(PaymentIntentCancellationFailed)
-                .IfElse(context => context.Saga.CoinsAmount > 0, 
+                .IfElse(context => context.Saga.CoinsAmount > 0,
                     binder => binder
                         .Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
                         .TransitionTo(AwaitingCoinsHoldCancellation),
                     binder => binder
                         .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
                         .TransitionTo(AwaitingStockReservationCancellation)
-                )
-        );
-
-        During(AwaitingOrderPlacement,
-            When(OrderPlaced)
-                .ThenAsync(async context =>
-                {
-                    var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, true);
-                    await context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                    {
-                        sendContext.RequestId = context.Saga.RequestId;
-                    });
-                })
-                .Finalize(),
-            
-            When(OrderPlacementFailed)
-                .IfElse(context => context.Saga.Amount > 0,
-                    binder => binder.Send(new Uri("queue:payment:cancel-payment-intent"), context => new CancelPaymentIntent(context.Saga.OrderId))
-                                    .TransitionTo(AwaitingPaymentIntentCancellation),
-                    binder => binder.IfElse(context => context.Saga.CoinsAmount > 0,
-                        innerBinder => innerBinder
-                            .Send(new Uri("queue:wallet:cancel-hold"), context => new CancelHold(context.Saga.OrderId, context.Saga.UserId, context.Saga.CoinsAmount))
-                            .TransitionTo(AwaitingCoinsHoldCancellation),
-                        innerBinder => innerBinder
-                            .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
-                            .TransitionTo(AwaitingStockReservationCancellation)
-                        )
                 )
         );
 
