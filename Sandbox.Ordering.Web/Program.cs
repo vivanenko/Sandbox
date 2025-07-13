@@ -144,12 +144,6 @@ builder.Services.AddMassTransit(cfg =>
         o.UsePostgres();
     });
     
-    cfg.AddConsumer<ConfirmOrderConsumer>().Endpoint(c =>
-    {
-        c.Name = "ordering:confirm-order";
-        c.ConfigureConsumeTopology = false;
-    });
-    
     cfg.UsingRabbitMq((context, config) =>
     {
         var rabbitMq = builder.Configuration.GetSection("RabbitMQ");

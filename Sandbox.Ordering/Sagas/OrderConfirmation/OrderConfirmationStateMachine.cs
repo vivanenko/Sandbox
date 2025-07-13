@@ -1,5 +1,4 @@
 using MassTransit;
-using Sandbox.Ordering.Shared;
 using Sandbox.Stock.Shared;
 
 namespace Sandbox.Ordering.Sagas.OrderConfirmation;
@@ -19,7 +18,6 @@ public class OrderConfirmationState : SagaStateMachineInstance
 public class OrderConfirmationStateMachine : MassTransitStateMachine<OrderConfirmationState>
 {
     public State AwaitingStockReservationConfirmation { get; private set; }
-    public State AwaitingOrderConfirmation { get; private set; }
     public State AwaitingStockReservationReversion { get; private set; }
     
     public Event<StartOrderConfirmationSaga> StartOrderConfirmationSaga { get; private set; }
@@ -30,9 +28,6 @@ public class OrderConfirmationStateMachine : MassTransitStateMachine<OrderConfir
     public Event<StockReservationConfirmationFailed>  StockReservationConfirmationFailed { get; private set; }
     public Event<StockReservationReverted> StockReservationReverted { get; private set; }
     public Event<StockReservationReversionFailed> StockReservationReversionFailed { get; private set; }
-    
-    public Event<OrderConfirmed> OrderConfirmed { get; private set; }
-    public Event<OrderConfirmationFailed> OrderConfirmationFailed { get; private set; }
     
     public OrderConfirmationStateMachine()
     {
@@ -46,9 +41,6 @@ public class OrderConfirmationStateMachine : MassTransitStateMachine<OrderConfir
         Event(() => StockReservationConfirmationFailed, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => StockReservationReverted, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => StockReservationReversionFailed, x => x.CorrelateById(context => context.Message.OrderId));
-        
-        Event(() => OrderConfirmed, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => OrderConfirmationFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Initially(
             When(StartOrderConfirmationSaga)
@@ -68,8 +60,23 @@ public class OrderConfirmationStateMachine : MassTransitStateMachine<OrderConfir
         
         During(AwaitingStockReservationConfirmation,
             When(StockReservationConfirmed)
-                .Send(new Uri("queue:ordering:confirm-order"), context => new ConfirmOrder(context.Saga.OrderId))
-                .TransitionTo(AwaitingOrderConfirmation),
+                .ThenAsync(async context =>
+                {
+                    Console.WriteLine("Saving order to the database and publishing OrderConfirmed event");
+                    var success = true;
+                    if (!success) throw new Exception("Failed to save order to the database");
+
+                    var message = new OrderConfirmationSagaCompleted(context.Saga.OrderId);
+                    await context.Send(context.Saga.ResponseAddress, message, sendContext =>
+                    {
+                        sendContext.RequestId = context.Saga.RequestId;
+                    });
+                })
+                .Finalize()
+                .Catch<Exception>(exception => exception
+                    .Send(new Uri("queue:stock:revert-stock-reservation"), context => new RevertStockReservation(context.Saga.OrderId))
+                    .TransitionTo(AwaitingStockReservationReversion)
+                ),
             
             When(StockReservationConfirmationFailed)
                 .ThenAsync(async context =>
@@ -81,23 +88,6 @@ public class OrderConfirmationStateMachine : MassTransitStateMachine<OrderConfir
                     });
                 })
                 .Finalize()
-        );
-        
-        During(AwaitingOrderConfirmation,
-            When(OrderConfirmed)
-                .ThenAsync(async context =>
-                {
-                    var message = new OrderConfirmationSagaCompleted(context.Saga.OrderId);
-                    await context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                    {
-                        sendContext.RequestId = context.Saga.RequestId;
-                    });
-                })
-                .Finalize(),
-            
-            When(OrderConfirmationFailed)
-                .Send(new Uri("queue:stock:revert-stock-reservation"), context => new RevertStockReservation(context.Saga.OrderId))
-                .TransitionTo(AwaitingStockReservationReversion)
         );
         
         During(AwaitingStockReservationReversion,
