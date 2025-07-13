@@ -1,7 +1,6 @@
 using MassTransit;
 using Sandbox.Ordering.Models;
 using Sandbox.Stock.Shared;
-using Sandbox.Ordering.Shared;
 using Sandbox.Payment.Shared;
 using Sandbox.Wallet.Shared;
 
@@ -114,7 +113,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                                 var success = true;
                                 if (!success) throw new Exception("Failed to save order to the database");
                                 
-                                var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, true);
+                                var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, false);
                                 await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                                 {
                                     sendContext.RequestId = context.Saga.RequestId;
@@ -176,7 +175,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                             var success = true;
                             if (!success) throw new Exception("Failed to save order to the database");
                             
-                            var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, true);
+                            var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, false);
                             await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                             {
                                 sendContext.RequestId = context.Saga.RequestId;
