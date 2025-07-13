@@ -144,11 +144,6 @@ builder.Services.AddMassTransit(cfg =>
         o.UsePostgres();
     });
     
-    cfg.AddConsumer<MoveOrderToPaidStateConsumer>().Endpoint(c =>
-    {
-        c.Name = "ordering:move-order-to-paid-state";
-        c.ConfigureConsumeTopology = false;
-    });
     cfg.AddConsumer<ConfirmOrderConsumer>().Endpoint(c =>
     {
         c.Name = "ordering:confirm-order";

@@ -1,6 +1,5 @@
 using MassTransit;
 using Sandbox.Stock.Shared;
-using Sandbox.Ordering.Shared;
 using Sandbox.Payment.Shared;
 using Sandbox.Wallet.Shared;
 
@@ -24,7 +23,6 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
     public State AwaitingStockReservationExtension { get; private set; }
     public State AwaitingCoinsHoldCommit { get; private set; }
     public State AwaitingPaymentConfirmation { get; private set; }
-    public State AwaitingOrderPayment { get; private set; }
     public State AwaitingPaymentRefund { get; private set; }
     public State AwaitingCoinsRefund { get; private set; }
     public State AwaitingStockReservationReduction { get; private set; }
@@ -48,9 +46,6 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
     public Event<PaymentRefunded> PaymentRefunded { get; private set; }
     public Event<PaymentRefundFailed> PaymentRefundFailed { get; private set; }
     
-    public Event<OrderPaid> OrderPaid { get; private set; }
-    public Event<OrderPaymentFailed> OrderPaymentFailed { get; private set; }
-    
     public OrderPaymentStateMachine()
     {
         InstanceState(x => x.CurrentState);
@@ -73,9 +68,6 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
         Event(() => PaymentFailed, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => PaymentRefunded, x => x.CorrelateById(context => context.Message.OrderId));
         Event(() => PaymentRefundFailed, x => x.CorrelateById(context => context.Message.OrderId));
-        
-        Event(() => OrderPaid, x => x.CorrelateById(context => context.Message.OrderId));
-        Event(() => OrderPaymentFailed, x => x.CorrelateById(context => context.Message.OrderId));
         
         Initially(
             When(StartOrderPaymentSaga)
@@ -153,29 +145,27 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
         
         During(AwaitingPaymentConfirmation,
             When(PaymentConfirmed)
-                .Send(new Uri("queue:ordering:move-order-to-paid-state"), context => new MoveOrderToPaidState(context.Saga.OrderId))
-                .TransitionTo(AwaitingOrderPayment),
-            
-            When(PaymentFailed)
-                .Send(new Uri("queue:wallet:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
-                .TransitionTo(AwaitingCoinsRefund)
-        );
-        
-        During(AwaitingOrderPayment,
-            When(OrderPaid)
                 .ThenAsync(async context =>
                 {
+                    Console.WriteLine("Saving order to the database and publishing OrderPlaid event");
+                    var success = true;
+                    if (!success) throw new Exception("Failed to save order to the database");
+                    
                     var message = new OrderPaymentSagaCompleted(context.Saga.OrderId);
                     await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                     {
                         sendContext.RequestId = context.Saga.RequestId;
                     });
                 })
-                .Finalize(),
+                .Finalize()
+                .Catch<Exception>(exception => exception
+                    .Send(new Uri("queue:payment:refund-payment"), context => new RefundPayment(context.Saga.OrderId))
+                    .TransitionTo(AwaitingPaymentRefund)
+                ),
             
-            When(OrderPaymentFailed)
-                .Send(new Uri("queue:payment:refund-payment"), context => new RefundPayment(context.Saga.OrderId))
-                .TransitionTo(AwaitingPaymentRefund)
+            When(PaymentFailed)
+                .Send(new Uri("queue:wallet:refund-coins"), context => new RefundCoins(context.Saga.OrderId))
+                .TransitionTo(AwaitingCoinsRefund)
         );
         
         During(AwaitingPaymentRefund,
@@ -190,26 +180,12 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
         
         During(AwaitingCoinsRefund,
             When(CoinsRefunded)
-                .ThenAsync(async context =>
-                {
-                    var message = new OrderPaymentSagaFailed(context.Saga.OrderId, "");
-                    await context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                    {
-                        sendContext.RequestId = context.Saga.RequestId;
-                    });
-                })
-                .Finalize(),
-            
+                .Send(new Uri("queue:stock:reduce-stock-reservation"), context => new ReduceStockReservation(context.Saga.OrderId))
+                .TransitionTo(AwaitingStockReservationReduction),
+
             When(CoinsRefundFailed)
-                .ThenAsync(async context =>
-                {
-                    var message = new OrderPaymentSagaFailed(context.Saga.OrderId, "");
-                    await context.Send(context.Saga.ResponseAddress, message, sendContext =>
-                    {
-                        sendContext.RequestId = context.Saga.RequestId;
-                    });
-                })
-                .Finalize()
+                .Send(new Uri("queue:stock:reduce-stock-reservation"), context => new ReduceStockReservation(context.Saga.OrderId))
+                .TransitionTo(AwaitingStockReservationReduction)
         );
         
         SetCompletedWhenFinalized();
