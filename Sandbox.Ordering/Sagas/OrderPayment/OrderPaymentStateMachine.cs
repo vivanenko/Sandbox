@@ -13,7 +13,7 @@ public class OrderPaymentState : SagaStateMachineInstance
     public string CurrentState { get; set; }
     
     public Guid OrderId { get; set; }
-    public Guid UserId { get; set; }
+    public Guid? HoldId { get; set; }
     
     public Guid RequestId { get; set; }
     public Uri ResponseAddress { get; set; }
@@ -82,7 +82,7 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
                 .Then(context =>
                 {
                     context.Saga.OrderId = context.Message.OrderId;
-                    context.Saga.UserId = context.Message.UserId;
+                    context.Saga.HoldId = context.Message.HoldId;
 
                     if (!context.RequestId.HasValue || context.ResponseAddress is null)
                         throw new Exception("RequestId and ResponseAddress are required");
@@ -96,8 +96,14 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
         
         During(AwaitingStockReservationExtension,
             When(StockReservationExtended)
-                .Send(new Uri("queue:wallet:commit-hold"), context => new CommitHold(context.Saga.OrderId, context.Saga.UserId))
-                .TransitionTo(AwaitingCoinsHoldCommit),
+                .IfElse(context => context.Saga.HoldId.HasValue,
+                    binder => binder
+                        .Send(new Uri("queue:wallet:commit-hold"), context => new CommitHold(context.Saga.OrderId, context.Saga.HoldId!.Value))
+                        .TransitionTo(AwaitingCoinsHoldCommit),
+                    binder => binder
+                        .Send(new Uri("queue:payment:confirm-payment"), context => new ConfirmPayment(context.Saga.OrderId))
+                        .TransitionTo(AwaitingPaymentConfirmation)
+                ),
             
             When(StockReservationExtensionFailed)
                 .ThenAsync(async context =>

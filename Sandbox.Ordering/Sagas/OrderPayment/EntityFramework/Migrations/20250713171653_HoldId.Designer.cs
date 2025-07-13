@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Sandbox.Ordering.Sagas.OrderPayment.EntityFramework;
@@ -11,9 +12,11 @@ using Sandbox.Ordering.Sagas.OrderPayment.EntityFramework;
 namespace Sandbox.Ordering.Sagas.OrderPayment.EntityFramework.Migrations
 {
     [DbContext(typeof(OrderPaymentSagaDbContext))]
-    partial class OrderPaymentSagaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250713171653_HoldId")]
+    partial class HoldId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

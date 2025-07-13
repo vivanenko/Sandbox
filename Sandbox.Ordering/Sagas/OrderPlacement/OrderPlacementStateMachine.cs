@@ -6,6 +6,8 @@ using Sandbox.Wallet.Shared;
 
 namespace Sandbox.Ordering.Sagas.OrderPlacement;
 
+// todo: Create order in Paid state if payment is not required
+// todo: Make extended reservation & hold if payment is not required
 public class OrderPlacementState : SagaStateMachineInstance
 {
     public Guid CorrelationId { get; set; }
