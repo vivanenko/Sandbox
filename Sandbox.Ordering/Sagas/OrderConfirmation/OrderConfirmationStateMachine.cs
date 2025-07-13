@@ -1,4 +1,6 @@
 using MassTransit;
+using Microsoft.Extensions.DependencyInjection;
+using Sandbox.Ordering.Services;
 using Sandbox.Stock.Shared;
 
 namespace Sandbox.Ordering.Sagas.OrderConfirmation;
@@ -62,10 +64,10 @@ public class OrderConfirmationStateMachine : MassTransitStateMachine<OrderConfir
             When(StockReservationConfirmed)
                 .ThenAsync(async context =>
                 {
-                    Console.WriteLine("Saving order to the database and publishing OrderConfirmed event");
-                    var success = true;
-                    if (!success) throw new Exception("Failed to save order to the database");
-
+                    var orderService = context.GetPayload<IServiceProvider>().GetRequiredService<IOrderService>();
+                    var command = new ConfirmOrderCommand(context.Saga.OrderId);
+                    await orderService.ConfirmOrderAsync(command, context.CancellationToken);
+                    
                     var message = new OrderConfirmationSagaCompleted(context.Saga.OrderId);
                     await context.Send(context.Saga.ResponseAddress, message, sendContext =>
                     {

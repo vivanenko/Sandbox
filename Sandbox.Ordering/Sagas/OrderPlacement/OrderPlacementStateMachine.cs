@@ -1,5 +1,7 @@
 using MassTransit;
+using Microsoft.Extensions.DependencyInjection;
 using Sandbox.Ordering.Models;
+using Sandbox.Ordering.Services;
 using Sandbox.Stock.Shared;
 using Sandbox.Payment.Shared;
 using Sandbox.Wallet.Shared;
@@ -111,9 +113,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                         innerBinder => innerBinder
                             .ThenAsync(async context =>
                             {
-                                Console.WriteLine("Saving order to the database and publishing OrderPlaced event");
-                                var success = true;
-                                if (!success) throw new Exception("Failed to save order to the database");
+                                var orderService = context.GetPayload<IServiceProvider>().GetRequiredService<IOrderService>();
+                                var command = new PlaceOrderCommand(context.Saga.OrderId);
+                                await orderService.TryPlaceOrderAsync(command, context.CancellationToken);
                                 
                                 var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, false);
                                 await context.Send(context.Saga.ResponseAddress, message, sendContext =>
@@ -173,9 +175,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                     binder => binder
                         .ThenAsync(async context =>
                         {
-                            Console.WriteLine("Saving order to the database and publishing OrderPlaced event");
-                            var success = true;
-                            if (!success) throw new Exception("Failed to save order to the database");
+                            var orderService = context.GetPayload<IServiceProvider>().GetRequiredService<IOrderService>();
+                            var command = new PlaceOrderCommand(context.Saga.OrderId);
+                            await orderService.TryPlaceOrderAsync(command, context.CancellationToken);
                             
                             var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, false);
                             await context.Send(context.Saga.ResponseAddress, message, sendContext =>
@@ -209,9 +211,9 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
             When(PaymentIntentCreated)
                 .ThenAsync(async context =>
                 {
-                    Console.WriteLine("Saving order to the database and publishing OrderPlaced event");
-                    var success = true;
-                    if (!success) throw new Exception("Failed to save order to the database");
+                    var orderService = context.GetPayload<IServiceProvider>().GetRequiredService<IOrderService>();
+                    var command = new PlaceOrderCommand(context.Saga.OrderId);
+                    await orderService.TryPlaceOrderAsync(command, context.CancellationToken);
                     
                     var message = new OrderPlacementSagaCompleted(context.Saga.OrderId, true);
                     await context.Send(context.Saga.ResponseAddress, message, sendContext =>

@@ -1,4 +1,6 @@
 using MassTransit;
+using Microsoft.Extensions.DependencyInjection;
+using Sandbox.Ordering.Services;
 using Sandbox.Stock.Shared;
 using Sandbox.Payment.Shared;
 using Sandbox.Wallet.Shared;
@@ -147,9 +149,9 @@ public class OrderPaymentStateMachine : MassTransitStateMachine<OrderPaymentStat
             When(PaymentConfirmed)
                 .ThenAsync(async context =>
                 {
-                    Console.WriteLine("Saving order to the database and publishing OrderPlaid event");
-                    var success = true;
-                    if (!success) throw new Exception("Failed to save order to the database");
+                    var orderService = context.GetPayload<IServiceProvider>().GetRequiredService<IOrderService>();
+                    var command = new PayForOrderCommand(context.Saga.OrderId);
+                    await orderService.PayForOrderAsync(command, context.CancellationToken);
                     
                     var message = new OrderPaymentSagaCompleted(context.Saga.OrderId);
                     await context.Send(context.Saga.ResponseAddress, message, sendContext =>

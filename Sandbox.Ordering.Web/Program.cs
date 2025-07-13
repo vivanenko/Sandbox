@@ -13,6 +13,7 @@ using Sandbox.Ordering.Sagas.OrderPayment;
 using Sandbox.Ordering.Sagas.OrderPayment.EntityFramework;
 using Sandbox.Ordering.Sagas.OrderPlacement;
 using Sandbox.Ordering.Sagas.OrderPlacement.EntityFramework;
+using Sandbox.Ordering.Services;
 using Sandbox.Ordering.Shared;
 using Sandbox.Payment.Shared;
 using Sandbox.Wallet.Shared;
@@ -62,6 +63,7 @@ builder.Services.AddHttpClient<ICartClient, CartClient>((_, httpClient) =>
     if (string.IsNullOrWhiteSpace(cartUri)) throw new Exception("Cart URI is not configured");
     httpClient.BaseAddress = new Uri(cartUri);
 }).AddStandardResilienceHandler();
+builder.Services.AddTransient<IOrderService, OrderService>();
 
 builder.Services.AddDbContext<OrderPlacementSagaDbContext>(options =>
 {
