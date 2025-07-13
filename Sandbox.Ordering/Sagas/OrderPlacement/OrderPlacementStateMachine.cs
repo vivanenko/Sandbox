@@ -30,7 +30,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
     public State AwaitingStockReservation { get; private set; }
     public State AwaitingCoinsHold { get; private set; }
     public State AwaitingPaymentIntent { get; private set; }
-    public State AwaitingStockReservationCancellation { get; private set; }
+    public State AwaitingStockRelease { get; private set; }
     public State AwaitingCoinsHoldCancellation { get; private set; }
     public State AwaitingPaymentIntentCancellation { get; private set; }
 
@@ -122,7 +122,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                             .Finalize()
                             .Catch<Exception>(exception => exception
                                 .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
-                                .TransitionTo(AwaitingStockReservationCancellation)
+                                .TransitionTo(AwaitingStockRelease)
                             )
                     )
                 ),
@@ -139,7 +139,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                 .Finalize()
         );
 
-        During(AwaitingStockReservationCancellation,
+        During(AwaitingStockRelease,
             When(StockReleased)
                 .ThenAsync(async context =>
                 {
@@ -190,17 +190,17 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
 
             When(CoinsHoldFailed)
                 .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
-                .TransitionTo(AwaitingStockReservationCancellation)
+                .TransitionTo(AwaitingStockRelease)
         );
         
         During(AwaitingCoinsHoldCancellation,
             When(HoldCancelled)
                 .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
-                .TransitionTo(AwaitingStockReservationCancellation),
+                .TransitionTo(AwaitingStockRelease),
             
             When(HoldCancellationFailed)
                 .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
-                .TransitionTo(AwaitingStockReservationCancellation)
+                .TransitionTo(AwaitingStockRelease)
         );
 
         During(AwaitingPaymentIntent,
@@ -229,7 +229,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                                     .TransitionTo(AwaitingCoinsHoldCancellation)
                 )
                 .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
-                .TransitionTo(AwaitingStockReservationCancellation)
+                .TransitionTo(AwaitingStockRelease)
         );
         
         During(AwaitingPaymentIntentCancellation,
@@ -240,7 +240,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                         .TransitionTo(AwaitingCoinsHoldCancellation),
                     binder => binder
                         .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
-                        .TransitionTo(AwaitingStockReservationCancellation)
+                        .TransitionTo(AwaitingStockRelease)
                 ),
             
             When(PaymentIntentCancellationFailed)
@@ -250,7 +250,7 @@ public class OrderPlacementStateMachine : MassTransitStateMachine<OrderPlacement
                         .TransitionTo(AwaitingCoinsHoldCancellation),
                     binder => binder
                         .Send(new Uri("queue:stock:release-stock"), context => new ReleaseStock(context.Saga.OrderId))
-                        .TransitionTo(AwaitingStockReservationCancellation)
+                        .TransitionTo(AwaitingStockRelease)
                 )
         );
 
